@@ -1,0 +1,3318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anki Memory Cast • SM-2 Spaced Repetition & Ebbinghaus Analytics</title>
+  <meta name="description" content="Anki Memory Cast - Hệ thống học từ vựng thông minh theo thuật toán Spaced Repetition SM-2 và phân tích đường cong quên lãng Ebbinghaus">
+  <meta name="theme-color" content="#4F46E5">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234F46E5'><path d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z'/><polyline points='10 8 16 12 10 16' stroke='white' stroke-width='2.5' fill='none'/></svg>">
+
+  <!-- Google Fonts: Lora (Serif) & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- SheetJS (XLSX) CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Tailwind Configuration -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              purple1: '#7C65FF',
+              purple2: '#5B42F3',
+              dark: '#1E1B4B',
+              bg: '#F4F3FB',
+              slate: '#8E8CA8',
+              orange: '#FF8A48',
+              orangeSoft: '#FFF4ED'
+            }
+          },
+          fontFamily: {
+            serif: ['"Lora"', 'Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
+            sans: ['"Lora"', 'Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          },
+          borderRadius: {
+            'phone': '28px',
+            'card': '24px'
+          },
+          boxShadow: {
+            'purple-glow': '0 12px 32px rgba(91, 66, 243, 0.14)',
+            'phone-frame': '0 24px 60px rgba(91, 66, 243, 0.15), 0 4px 20px rgba(0, 0, 0, 0.04)'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Visual Design Tokens & Component Styles -->
+  <style>
+    :root {
+      --primary-gradient: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%);
+      --surface-bg: #F8FAFC;
+      --surface-card: #FFFFFF;
+      --accent-orange: #D97706;
+      --heading-navy: #0F172A;
+      --muted-slate: #64748B; /* Restful Slate-500, WCAG AA compliant */
+      --accent-orange-text: #C45500; /* WCAG AA 4.7:1 on white */
+    }
+
+    body {
+      font-family: 'Lora', Georgia, 'Cambria', 'Times New Roman', Times, serif;
+      background-color: var(--surface-bg);
+      color: var(--heading-navy);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+
+    /* Gradient Backgrounds */
+    .bg-gradient-anki {
+      background: var(--primary-gradient);
+    }
+    .bg-gradient-orange {
+      background: linear-gradient(135deg, #FFA066 0%, #FF8A48 100%);
+    }
+
+    /* Typography System & Reading Tuning (Serif Edition) */
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Lora', Georgia, 'Cambria', 'Times New Roman', Times, serif;
+      text-wrap: balance;
+      letter-spacing: -0.012em;
+    }
+    p, li, .prose-body {
+      text-wrap: pretty;
+      line-height: 1.6;
+    }
+    .font-feature-tabular {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
+
+    /* Elegant Minimal Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94A3B8;
+    }
+
+    /* Screen Reader Only Utility */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+
+    /* Accessible focus states */
+    *:focus-visible {
+      outline: 2px solid #4F46E5 !important;
+      outline-offset: 2px !important;
+    }
+
+    /* Mobile Phone Shells */
+    .mobile-frame-container {
+      width: 375px;
+      min-width: 350px;
+      max-width: 385px;
+      height: 780px;
+      background: var(--surface-card);
+      border-radius: 24px;
+      box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+      border: 1px solid #E2E8F0;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .mobile-frame-container:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.09);
+    }
+
+    /* Scrollable Inner View */
+    .screen-scroll-body {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+    }
+    .screen-scroll-body::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* 3D Flip Card Container */
+    .card-perspective-stage {
+      perspective: 1200px;
+      width: 100%;
+    }
+    .card-3d-flipper {
+      width: 100%;
+      min-height: 240px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+      cursor: pointer;
+    }
+    .card-3d-flipper.is-flipped {
+      transform: rotateY(180deg);
+    }
+    .card-face {
+      position: absolute;
+      inset: 0;
+      background: #FFFFFF;
+      border-radius: 20px;
+      border: 1px solid #E2E8F0;
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+    .card-face.back {
+      transform: rotateY(180deg);
+    }
+
+    /* Refined Flip-Digit Counter Boxes (Tactile Clock Styling) */
+    .flip-digit-box {
+      width: 32px;
+      height: 44px;
+      background: linear-gradient(180deg, #FFFFFF 0%, #F1F5F9 100%);
+      border: 1px solid #CBD5E1;
+      border-radius: 8px;
+      color: #0F172A;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      box-shadow: 0 2px 5px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      user-select: none;
+      transition: transform 0.15s ease;
+    }
+    .flip-digit-box::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: rgba(15, 23, 42, 0.12);
+    }
+
+    
+    /* ==========================================================================
+       FULL-WIDTH DESKTOP LAYOUT & RESPONSIVE GRID ALIGNMENT
+       ========================================================================== */
+
+    /* Universal Full-Width Grid Stack */
+    .showcase-grid {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* Screen Visibility Rules by Focus State */
+    .showcase-grid.focus-screen-1 #frame-2,
+    .showcase-grid.focus-screen-1 #frame-3 { display: none !important; }
+    .showcase-grid.focus-screen-2 #frame-1,
+    .showcase-grid.focus-screen-2 #frame-3 { display: none !important; }
+    .showcase-grid.focus-screen-3 #frame-1,
+    .showcase-grid.focus-screen-3 #frame-2 { display: none !important; }
+
+    /* Desktop Full-Width Flow: Showcase (Default Panorama) */
+    @media (min-width: 1024px) {
+      .showcase-grid:not(.focus-screen-1):not(.focus-screen-2):not(.focus-screen-3) {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 2rem !important;
+      }
+      /* Top Full-Width Theater: Active Study Deck (#frame-2) */
+      .showcase-grid:not(.focus-screen-1):not(.focus-screen-2):not(.focus-screen-3) #frame-2 {
+        order: 1 !important;
+        width: 100% !important;
+        display: flex !important;
+      }
+      /* Middle Full-Width Expansive Analytics & Chart (#frame-3) */
+      .showcase-grid:not(.focus-screen-1):not(.focus-screen-2):not(.focus-screen-3) #frame-3 {
+        order: 2 !important;
+        width: 100% !important;
+        display: flex !important;
+      }
+      /* Bottom Full-Width Home / Hub (#frame-1) */
+      .showcase-grid:not(.focus-screen-1):not(.focus-screen-2):not(.focus-screen-3) #frame-1 {
+        order: 3 !important;
+        width: 100% !important;
+        display: flex !important;
+      }
+    }
+
+    /* Tablet & Desktop Card Containers (Full width with 0 inner cramped borders) */
+    .desktop-panel-card,
+    .study-theater-container {
+      width: 100% !important;
+      max-width: 100% !important;
+      background: var(--surface-card);
+      border-radius: 28px;
+      border: 1px solid #E2E8F0;
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.25s ease;
+    }
+
+    /* Single Focused Screen on Desktop: Expansive Full-Width */
+    @media (min-width: 768px) {
+      .showcase-grid.focus-screen-1 #frame-1,
+      .showcase-grid.focus-screen-2 #frame-2,
+      .showcase-grid.focus-screen-3 #frame-3 {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto;
+        min-height: 700px;
+        margin: 0 auto;
+        display: flex !important;
+      }
+    }
+
+    /* Mobile Phones (< 768px): Clean edge-to-edge flow */
+    @media (max-width: 767px) {
+      body {
+        padding-bottom: 70px;
+      }
+      .mobile-frame-container,
+      .desktop-panel-card,
+      .study-theater-container {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: calc(100dvh - 120px) !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
+      .showcase-grid:not(.focus-screen-1):not(.focus-screen-2):not(.focus-screen-3) #frame-1 { display: none !important; }
+      .showcase-grid:not(.focus-screen-1):not(.focus-screen-2):not(.focus-screen-3) #frame-3 { display: none !important; }
+      .showcase-grid:not(.focus-screen-1):not(.focus-screen-2):not(.focus-screen-3) #frame-2 { display: flex !important; }
+
+      .showcase-grid.focus-screen-1 #frame-1 { display: flex !important; }
+      .showcase-grid.focus-screen-1 #frame-2, .showcase-grid.focus-screen-1 #frame-3 { display: none !important; }
+
+      .showcase-grid.focus-screen-2 #frame-2 { display: flex !important; }
+      .showcase-grid.focus-screen-2 #frame-1, .showcase-grid.focus-screen-2 #frame-3 { display: none !important; }
+
+      .showcase-grid.focus-screen-3 #frame-3 { display: flex !important; }
+      .showcase-grid.focus-screen-3 #frame-1, .showcase-grid.focus-screen-3 #frame-2 { display: none !important; }
+    }
+
+    /* 3D Perspective Theater Card Dimensions & Polish */
+    .study-theater-container .card-perspective-stage {
+      perspective: 1600px;
+      width: 100%;
+    }
+    .study-theater-container .card-3d-flipper {
+      width: 100%;
+      min-height: 420px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+      cursor: pointer;
+    }
+    @media (min-width: 640px) {
+      .study-theater-container .card-3d-flipper {
+        min-height: 460px;
+      }
+    }
+    @media (min-width: 1024px) {
+      .study-theater-container .card-3d-flipper {
+        min-height: 500px;
+      }
+    }
+    .study-theater-container .card-face {
+      position: absolute;
+      inset: 0;
+      background: #FFFFFF;
+      border-radius: 28px;
+      border: 1px solid #E2E8F0;
+      box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      transition: box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .study-theater-container .card-3d-flipper:not(.is-flipped):hover .card-face.front {
+      border-color: #CBD5E1;
+      box-shadow: 0 16px 40px -6px rgba(15, 23, 42, 0.09), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+    }
+    @media (min-width: 640px) {
+      .study-theater-container .card-face {
+        padding: 40px 52px;
+      }
+    }
+    @media (min-width: 1024px) {
+      .study-theater-container .card-face {
+        padding: 48px 64px;
+      }
+    }
+
+    /* Custom Toast */
+    .toast-pill {
+      transform: translateY(60px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .toast-pill.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
+
+  <!-- ======================================================================
+       TOP DESKTOP HEADER & VIEW CONTROLLER (Distilled & Minimalist)
+       ====================================================================== -->
+  <header class="bg-white/95 backdrop-blur-md border-b border-slate-200/70 sticky top-0 z-50 h-14 px-4 sm:px-6">
+    <div class="w-full max-w-[1440px] 2xl:max-w-[1536px] mx-auto h-full flex items-center justify-between gap-4">
+      
+      <!-- Brand Identity (Distilled: No clutter, no math formulas) -->
+      <div class="flex items-center gap-2.5 shrink-0">
+        <div class="w-8 h-8 rounded-xl bg-[#4F46E5] flex items-center justify-center text-white shadow-2xs">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+            <polyline points="10 8 16 12 10 16"></polyline>
+          </svg>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">Anki Memory Cast</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 border border-indigo-100/80 text-[#4338CA] px-2 py-0.5 rounded-md font-mono">SM-2</span>
+        </div>
+      </div>
+
+      <!-- Mode / Screen Selector Tabs (Distilled: Clear 1-word labels) -->
+      <nav class="hidden md:flex items-center bg-slate-100/90 p-1 rounded-full border border-slate-200/60" aria-label="View switch">
+        <button id="viewBtnPanorama" class="view-tab-btn active px-3.5 py-1 rounded-full text-xs font-bold text-[#4F46E5] bg-white shadow-2xs transition-all active:scale-95" data-view="panorama">
+          Showcase
+        </button>
+        <button id="viewBtnS1" class="view-tab-btn px-3 py-1 rounded-full text-xs font-semibold text-slate-600 hover:text-[#4F46E5] transition-all active:scale-95" data-view="screen-1">
+          Hub
+        </button>
+        <button id="viewBtnS2" class="view-tab-btn px-3 py-1 rounded-full text-xs font-semibold text-slate-600 hover:text-[#4F46E5] transition-all active:scale-95" data-view="screen-2">
+          Study
+        </button>
+        <button id="viewBtnS3" class="view-tab-btn px-3 py-1 rounded-full text-xs font-semibold text-slate-600 hover:text-[#4F46E5] transition-all active:scale-95" data-view="screen-3">
+          Analytics
+        </button>
+      </nav>
+
+      <!-- Quick Actions (Distilled & Neutral) -->
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="btnOpenExcelHubTop" aria-label="Open Excel and Data Sync Hub" class="flex items-center gap-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200/80 text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded-full transition-all active:scale-95 shadow-2xs" title="Đồng bộ Excel / CSV">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          <span>Excel</span>
+        </button>
+
+        <button id="btnOpenGuideTop" aria-label="Open User Guide and Memory Science" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200/80 text-slate-600 hover:text-[#4F46E5] flex items-center justify-center font-bold text-xs transition-all active:scale-95 shadow-2xs" title="Hướng dẫn sử dụng & thuật toán">
+          ?
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ======================================================================
+       MAIN SHOWCASE: STUDY THEATER & SCREEN WORKSPACE
+       ====================================================================== -->
+  <main class="flex-1 w-full max-w-[1440px] 2xl:max-w-[1536px] mx-auto p-4 sm:p-6 lg:p-8 flex justify-center items-start">
+    <div id="showcaseContainer" class="showcase-grid w-full">
+
+      <!-- ==================================================================
+           SCREEN 1: Home / Hub (Desktop Edge-to-Edge Dashboard)
+           ================================================================== -->
+      <section id="frame-1" class="desktop-panel-card" aria-label="Screen 1: Home Hub">
+        
+        <div class="screen-scroll-body p-5 sm:p-6 lg:p-7 flex flex-col justify-between h-full">
+          
+          <!-- Top Hero Card -->
+          <div class="bg-gradient-anki text-white p-5 sm:p-6 rounded-2xl relative overflow-hidden shadow-sm mb-4">
+            <div class="flex items-start justify-between mb-4">
+              <div>
+                <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight text-white">Anki Memory Cast</h2>
+                <p class="text-xs sm:text-sm text-indigo-100 font-medium mt-0.5">Spaced repetition & recall dashboard</p>
+              </div>
+              
+              <!-- Screen 1 Top-Right "?" (Hướng dẫn) button -->
+              <button id="btnScreen1Guide" aria-label="Open User Guide" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 flex items-center justify-center text-white font-bold text-xs transition-all shadow-2xs active:scale-95" title="Hướng dẫn sử dụng">
+                ?
+              </button>
+            </div>
+
+            <!-- Center Summary Visual Container -->
+            <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 sm:p-5 text-center max-w-xl mx-auto">
+              <span class="inline-flex items-center gap-1.5 bg-white/15 text-white/95 text-xs font-bold uppercase tracking-wider px-3.5 py-1 rounded-full mb-2">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                Thẻ cần ôn hôm nay (Due Today)
+              </span>
+              <div id="s1DueCountHero" class="text-4xl sm:text-5xl font-extrabold font-mono font-feature-tabular tracking-tight my-2 text-white">12</div>
+              <p id="s1DueSubtitle" class="text-xs sm:text-sm text-indigo-100 mb-4 font-medium">Thẻ được lập lịch ôn tập theo thuật toán SM-2</p>
+              <button id="s1StartDueBtn" class="bg-white text-[#4338CA] hover:bg-indigo-50 text-xs sm:text-sm font-bold px-6 py-2.5 rounded-full shadow-sm hover:scale-105 transition-all inline-flex items-center gap-2">
+                <span>Bắt đầu ôn tập (Start Due Review)</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Bottom Action Cards Grid -->
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="text-sm sm:text-base font-bold text-slate-900 tracking-tight">Khu vực học tập & Tác vụ</h3>
+              <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-md">SM-2 Hub</span>
+            </div>
+
+            <!-- 2-Column Responsive Action Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 action-cards-grid">
+              <!-- Action Card 1: Due Reviews -->
+              <div id="actionCardDue" role="button" tabindex="0" aria-label="Start Due Review session" class="bg-white border border-slate-200/80 hover:border-indigo-300 rounded-2xl p-4 shadow-2xs hover:bg-indigo-50/30 active:scale-[0.98] flex items-center gap-3.5 cursor-pointer transition-all group">
+                <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-[#4F46E5] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 2v6h-6"></path>
+                    <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                    <path d="M3 22v-6h6"></path>
+                    <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h4 class="text-sm font-bold text-slate-900 group-hover:text-[#4F46E5] transition-colors">Start Due Review</h4>
+                  <p class="text-xs text-slate-500 truncate">Ôn tập thẻ theo thuật toán SM-2</p>
+                </div>
+                <span id="s1DueBadge" class="text-xs font-bold font-mono text-[#4338CA] bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg shrink-0">12 Due</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </div>
+
+              <!-- Action Card 2: Excel & Data Sync Hub -->
+              <div id="actionCardExcelHub" role="button" tabindex="0" aria-label="Open Excel and Data Sync Hub" class="bg-white border border-slate-200/80 hover:border-amber-300 rounded-2xl p-4 shadow-2xs hover:bg-amber-50/30 active:scale-[0.98] flex items-center gap-3.5 cursor-pointer transition-all group">
+                <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="8" y1="13" x2="16" y2="13"></line>
+                    <line x1="8" y1="17" x2="16" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h4 class="text-sm font-bold text-slate-900 group-hover:text-amber-700 transition-colors">Excel & Data Sync Hub</h4>
+                  <p class="text-xs text-slate-500 truncate">Import/Export XLSX, CSV & Bulk backup</p>
+                </div>
+                <span id="s1TotalBadge" class="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-lg shrink-0">20 Cards</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Footer Ebbinghaus Banner -->
+            <div id="s1AnalyticsJump" class="bg-indigo-50/50 border border-dashed border-indigo-200/80 hover:bg-indigo-50 active:scale-[0.99] rounded-2xl p-3.5 px-5 flex items-center justify-between cursor-pointer transition-all mt-1">
+              <div class="flex items-center gap-2.5 text-xs sm:text-sm font-bold text-[#4F46E5]">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10"></line>
+                  <line x1="12" y1="20" x2="12" y2="4"></line>
+                  <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                <span>Xem phân tích đường cong quên lãng (Ebbinghaus Analytics)</span>
+              </div>
+              <span id="s1AvgRetentionVal" class="text-xs sm:text-sm font-extrabold text-slate-900 font-mono">86% Recall</span>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ==================================================================
+           SCREEN 2: Deck, Bulk Add & Active Study (Expansive Study Theater)
+           ================================================================== -->
+      <section id="frame-2" class="study-theater-container" aria-label="Screen 2: Deck & Study">
+        
+        <div class="screen-scroll-body w-full p-6 sm:p-8 lg:p-10 flex flex-col justify-between">
+          
+          <div>
+            <!-- Screen 2 Top Action Bar -->
+            <div class="pt-1 pb-3 w-full">
+              <div class="flex items-center justify-between gap-2 mb-3">
+                <button id="s2BackBtn" class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm transition-all shrink-0 active:scale-95 shadow-2xs" aria-label="Back to Home Hub" title="Quay lại Hub (Screen 1)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
+                  <span class="hidden sm:inline">Hub</span>
+                </button>
+
+                <div class="flex items-center gap-2.5 sm:gap-3">
+                  <h2 class="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">Active Study Deck</h2>
+                  <div class="inline-flex items-center bg-indigo-50 border border-indigo-100/90 rounded-full p-0.5 shadow-2xs">
+                    <button id="s2PrevCardBtn" class="w-6 h-6 rounded-full hover:bg-indigo-100 text-[#4F46E5] active:scale-90 flex items-center justify-center transition-all text-xs font-bold" title="Thẻ trước (←)" aria-label="Thẻ trước">‹</button>
+                    <span id="s2QueueProgressPill" class="text-xs sm:text-sm font-bold text-[#4F46E5] px-2 font-mono font-feature-tabular select-none" aria-live="polite">1 / 12</span>
+                    <button id="s2NextCardBtn" class="w-6 h-6 rounded-full hover:bg-indigo-100 text-[#4F46E5] active:scale-90 flex items-center justify-center transition-all text-xs font-bold" title="Thẻ kế tiếp (→)" aria-label="Thẻ kế tiếp">›</button>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <!-- Undo Button -->
+                  <button id="s2UndoBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-500 hover:text-[#4F46E5] text-xs font-bold transition-all opacity-40 cursor-not-allowed" aria-label="Undo last graded card (Ctrl+Z)" title="Hoàn tác thẻ vừa đánh giá (Ctrl+Z)" disabled>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 7v6h6"></path>
+                      <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+                    </svg>
+                    <span class="hidden sm:inline">Hoàn tác</span>
+                  </button>
+
+                  <!-- Toggle Search Button -->
+                  <button id="s2ToggleSearchBtn" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-[#4F46E5] flex items-center justify-center transition-all shadow-2xs active:scale-95" aria-label="Toggle search bar" title="Tìm kiếm từ vựng">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                  </button>
+
+                  <!-- Export & Import Data Sync Group -->
+                  <div id="deckDataSyncButtonGroup" class="flex items-center gap-1.5 sm:gap-2">
+                    <button id="btnDeckExportJSON" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-[#4F46E5] text-xs sm:text-sm font-bold border border-slate-200/70 hover:border-indigo-200 transition-all shadow-2xs active:scale-95" aria-label="Xuất file từ vựng JSON để đồng bộ sang điện thoại" title="Xuất toàn bộ kho từ vựng và tiến độ học ra file vocab-backup.json để gửi sang điện thoại">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                      </svg>
+                      <span class="hidden sm:inline">Xuất file</span>
+                    </button>
+
+                    <button id="btnDeckImportJSON" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-[#4F46E5] text-xs sm:text-sm font-bold border border-slate-200/70 hover:border-indigo-200 transition-all shadow-2xs active:scale-95" aria-label="Nhập file từ vựng JSON từ điện thoại hoặc máy tính" title="Nhập danh sách từ vựng từ file .json (hỗ trợ Gộp hoặc Ghi đè)">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                      <span class="hidden sm:inline">Nhập file</span>
+                    </button>
+                  </div>
+
+                  <!-- Add Card Modal Trigger -->
+                  <button id="btnOpenAddCardsModal" class="flex items-center gap-1.5 bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-xl shadow-sm hover:scale-105 active:scale-95 transition-all" aria-label="Add new cards (Single or Bulk)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>+ Thêm thẻ</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Collapsible Search Bar (Hidden by default to save space) -->
+              <div id="s2SearchContainer" class="hidden mb-3">
+                <div class="relative flex items-center bg-slate-50 border border-slate-200/90 rounded-2xl px-4 py-2.5 focus-within:border-[#4F46E5] focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 mr-2.5 shrink-0">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <label for="s2SearchInput" class="sr-only">Search vocabulary words and definitions</label>
+                  <input id="s2SearchInput" type="text" placeholder="Tìm kiếm từ vựng, phiên âm, định nghĩa..." class="w-full bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none font-medium">
+                  <button id="s2ClearSearchBtn" class="text-xs text-slate-400 hover:text-slate-600 hidden px-1.5 py-0.5 rounded-full" aria-label="Clear search">✕</button>
+                </div>
+              </div>
+
+              <!-- Segmented Category Switcher -->
+              <div id="deckCategorySwitcher" class="flex items-center gap-1.5 p-1 bg-slate-100 border border-slate-200/70 rounded-2xl mb-2" role="tablist" aria-label="Deck queue filter">
+                <button id="categoryDueTile" role="tab" aria-selected="true" class="flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all bg-gradient-anki text-white shadow-sm active:scale-[0.98]">
+                  <span>Học hôm nay (Due Now)</span>
+                  <span id="s2DueCountTile" class="bg-white/20 px-2.5 py-0.5 rounded-full text-xs font-extrabold font-mono font-feature-tabular">12</span>
+                </button>
+                <button id="categoryTotalTile" role="tab" aria-selected="false" class="flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm text-slate-600 hover:text-slate-900 transition-all active:scale-[0.98]">
+                  <span>Toàn bộ kho từ (Total Words)</span>
+                  <span id="s2TotalCountTile" class="bg-slate-200/80 px-2.5 py-0.5 rounded-full text-xs font-extrabold font-mono font-feature-tabular text-slate-700">20</span>
+                </button>
+              </div>
+
+              <!-- Total Words Bulk Action Strip (Visible when Total Words tab is active) -->
+              <div id="totalWordsActionStrip" class="hidden flex items-center justify-between flex-wrap gap-2 px-3.5 py-2 bg-slate-50 border border-slate-200/80 rounded-2xl mb-2 text-xs transition-all">
+                <div class="flex items-center gap-2 text-slate-600 font-medium">
+                  <span class="inline-flex items-center justify-center w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 font-bold text-[11px]">⚙</span>
+                  <span class="font-bold text-slate-700">Quản lý kho từ:</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button id="btnOpenBulkDeleteModal" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-700 hover:text-[#4F46E5] font-bold transition-all shadow-2xs active:scale-95" title="Mở danh sách để chọn nhiều thẻ và xóa cùng lúc">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600">
+                      <polyline points="9 11 12 14 22 4"></polyline>
+                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                    <span>Chọn & Xóa nhiều thẻ</span>
+                  </button>
+                  <button id="btnClearAllCards" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-rose-600 font-bold transition-all shadow-2xs active:scale-95" title="Xóa toàn bộ kho từ để làm mới">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-rose-600">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    <span>Xóa tất cả</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Flashcard 3D Perspective Stage -->
+            <div class="card-perspective-stage my-3 w-full">
+              <div id="flashcardBoxFlipper" class="card-3d-flipper" role="button" tabindex="0" aria-label="Flashcard: press Space or click to flip card" title="Bấm hoặc nhấn Space để lật thẻ">
+                
+                <!-- Front Face -->
+                <div class="card-face front">
+                  <div class="flex items-center justify-between">
+                    <span id="cardPartOfSpeechTag" class="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#4338CA] bg-indigo-50 border border-indigo-100/80 px-3.5 py-1 rounded-full">adjective</span>
+                    
+                    <!-- Top-Right Card Actions: Edit & Delete Icons -->
+                    <div id="cardFrontActionsGroup" class="flex items-center gap-2" onclick="event.stopPropagation();">
+                      <button id="btnEditCard" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-[#4F46E5] flex items-center justify-center transition-all shadow-2xs active:scale-90" aria-label="Edit this card" title="Chỉnh sửa từ này (E)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                      </button>
+                      <button id="btnDeleteCard" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 border border-transparent hover:border-rose-200 flex items-center justify-center transition-all shadow-2xs active:scale-90" aria-label="Delete this card" title="Xóa từ này">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Big Bold Term & Pronunciation -->
+                  <div class="text-center my-6 sm:my-10">
+                    <h3 id="cardWordFront" class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight select-text">Ephemeral</h3>
+                    <div class="inline-flex items-center gap-3 bg-slate-100/90 border border-slate-200/60 px-4 py-1.5 rounded-full mt-4 sm:mt-6 shadow-2xs">
+                      <span id="cardPhoneticText" class="text-base sm:text-lg text-slate-700 font-mono font-medium tracking-wide">/ɪˈfem.ər.əl/</span>
+                      <button id="btnSpeakWord" class="w-7 h-7 rounded-full bg-white hover:bg-indigo-50 text-[#4F46E5] flex items-center justify-center transition-transform hover:scale-110 shadow-2xs" aria-label="Audio pronunciation" title="Phát âm tiếng Anh" onclick="event.stopPropagation();">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Flip Indicator Cue -->
+                  <div class="text-center">
+                    <span class="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-500 bg-slate-100/80 border border-slate-200/50 px-4 py-2 rounded-full shadow-2xs">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-500">
+                        <path d="m21.5 2-5 5h4a8 8 0 0 1-8 8v4a12 12 0 0 0 12-12h4l-7-5Z"></path>
+                        <path d="M2.5 22 7.5 17h-4a8 8 0 0 1 8-8V5a12 12 0 0 0-12 12h-4l7 5Z"></path>
+                      </svg>
+                      Nhấp vào thẻ hoặc nhấn <kbd class="font-mono font-bold bg-white px-1.5 py-0.5 rounded text-[11px] text-slate-800 shadow-2xs">Space</kbd> để lật mặt sau
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Back Face -->
+                <div class="card-face back">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs sm:text-sm font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200/60 px-3.5 py-1 rounded-full">Định nghĩa & Ghi nhớ</span>
+                    <div class="flex items-center gap-2" onclick="event.stopPropagation();">
+                      <button id="btnEditCardBack" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-[#4F46E5] flex items-center justify-center transition-all shadow-2xs active:scale-90" aria-label="Edit this card" title="Chỉnh sửa từ này">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                      </button>
+                      <button id="btnDeleteCardBack" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 border border-transparent hover:border-rose-200 flex items-center justify-center transition-all shadow-2xs active:scale-90" aria-label="Delete this card" title="Xóa từ này">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Definition & Example -->
+                  <div class="my-4 sm:my-6 max-w-4xl mx-auto w-full text-center">
+                    <p id="cardDefinitionBack" class="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 leading-snug mb-4 sm:mb-6 select-text">
+                      Lasting for a very short time; transitory; fleeting.
+                    </p>
+                    <div id="cardExampleContainer" class="bg-indigo-50/50 border-l-4 border-[#4F46E5] p-4 sm:p-6 rounded-r-2xl text-sm sm:text-base lg:text-lg text-slate-700 leading-relaxed italic text-left shadow-2xs">
+                      <span id="cardExampleText">“The ephemeral bloom of cherry blossoms draws millions every spring.”</span>
+                    </div>
+                  </div>
+
+                  <!-- SM-2 Statistics Pill Bar -->
+                  <div class="flex items-center justify-around bg-slate-50 border border-slate-200/80 p-3 sm:p-4 rounded-2xl text-xs sm:text-sm font-medium text-slate-600 max-w-3xl mx-auto w-full shadow-2xs">
+                    <span class="flex items-center gap-1.5">Khoảng cách: <strong id="statCardInterval" class="text-[#4338CA] font-mono font-bold text-sm sm:text-base">1d</strong></span>
+                    <span class="text-slate-300">•</span>
+                    <span class="flex items-center gap-1.5">Hệ số dễ (Ease): <strong id="statCardEase" class="text-[#4338CA] font-mono font-bold text-sm sm:text-base">2.50</strong></span>
+                    <span class="text-slate-300">•</span>
+                    <span class="flex items-center gap-1.5">Số lần lặp: <strong id="statCardReps" class="text-[#4338CA] font-mono font-bold text-sm sm:text-base">1</strong></span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Empty Queue Notification (Dynamic Multi-state) -->
+            <div id="emptyQueueNotice" class="hidden bg-white border border-dashed border-indigo-200 rounded-3xl p-8 sm:p-12 text-center shadow-sm my-4 max-w-2xl mx-auto">
+              <div id="emptyQueueIcon" class="w-14 h-14 rounded-full bg-indigo-50 text-[#4F46E5] flex items-center justify-center mx-auto mb-3 font-extrabold text-xl shadow-xs">
+                ✓
+              </div>
+              <h3 id="emptyQueueTitle" class="text-lg sm:text-xl font-extrabold text-slate-900 mb-1">Đã hoàn thành tất cả thẻ cần ôn!</h3>
+              <p id="emptyQueueDesc" class="text-sm text-slate-600 mb-5">Bạn đã hoàn thành toàn bộ thẻ ôn tập theo thuật toán SM-2 hôm nay.</p>
+              <button id="btnSwitchToAllCards" class="bg-[#4F46E5] hover:bg-[#4338CA] text-white text-sm font-bold px-6 py-2.5 rounded-full shadow-sm hover:scale-105 active:scale-95 transition-all">
+                Ôn tập tất cả từ vựng (Total Words)
+              </button>
+            </div>
+          </div>
+
+          <!-- Bottom Grading Controls & Keyboard Bar -->
+          <div class="pt-3">
+            <div id="sm2GradingRow" class="grid grid-cols-4 gap-3 sm:gap-4 mt-3 w-full">
+              <button id="btnGradeAgain" class="flex flex-col items-center justify-center py-3 sm:py-3.5 px-2 rounded-2xl bg-rose-50/80 border border-rose-200/80 hover:bg-rose-100 text-rose-800 font-bold transition-all shadow-2xs hover:scale-[1.02] active:scale-95 focus-visible:ring-2 focus-visible:ring-rose-400" aria-label="Again: blackout recall, repeat <10m (Key 1)" title="Again (Phím 1)">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs sm:text-sm font-bold">Again</span>
+                  <kbd class="hidden sm:inline-block text-[10px] font-mono font-semibold bg-rose-200/70 text-rose-900 px-1.5 py-0.2 rounded">1</kbd>
+                </div>
+                <span id="tagAgain" class="text-[11px] sm:text-xs font-mono font-semibold text-rose-700 mt-0.5">&lt;10m</span>
+              </button>
+
+              <button id="btnGradeHard" class="flex flex-col items-center justify-center py-3 sm:py-3.5 px-2 rounded-2xl bg-amber-50/80 border border-amber-200/80 hover:bg-amber-100 text-amber-800 font-bold transition-all shadow-2xs hover:scale-[1.02] active:scale-95 focus-visible:ring-2 focus-visible:ring-amber-400" aria-label="Hard: slow recall, interval 1d (Key 2)" title="Hard (Phím 2)">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs sm:text-sm font-bold">Hard</span>
+                  <kbd class="hidden sm:inline-block text-[10px] font-mono font-semibold bg-amber-200/70 text-amber-900 px-1.5 py-0.2 rounded">2</kbd>
+                </div>
+                <span id="tagHard" class="text-[11px] sm:text-xs font-mono font-semibold text-amber-700 mt-0.5">1d</span>
+              </button>
+
+              <button id="btnGradeGood" class="flex flex-col items-center justify-center py-3 sm:py-3.5 px-2 rounded-2xl bg-[#4F46E5] hover:bg-[#4338CA] text-white font-bold transition-all shadow-md hover:scale-[1.02] active:scale-95 focus-visible:ring-2 focus-visible:ring-indigo-300" aria-label="Good: successful recall, interval 3d (Key 3)" title="Good (Phím 3)">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs sm:text-sm font-bold">Good</span>
+                  <kbd class="hidden sm:inline-block text-[10px] font-mono font-semibold bg-white/25 text-white px-1.5 py-0.2 rounded">3</kbd>
+                </div>
+                <span id="tagGood" class="text-[11px] sm:text-xs font-mono font-semibold text-indigo-100 mt-0.5">3d</span>
+              </button>
+
+              <button id="btnGradeEasy" class="flex flex-col items-center justify-center py-3 sm:py-3.5 px-2 rounded-2xl bg-slate-100 border border-slate-200/90 hover:bg-slate-200 text-slate-800 font-bold transition-all shadow-2xs hover:scale-[1.02] active:scale-95 focus-visible:ring-2 focus-visible:ring-slate-400" aria-label="Easy: instant recall, interval 6d (Key 4)" title="Easy (Phím 4)">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs sm:text-sm font-bold">Easy</span>
+                  <kbd class="hidden sm:inline-block text-[10px] font-mono font-semibold bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded">4</kbd>
+                </div>
+                <span id="tagEasy" class="text-[11px] sm:text-xs font-mono font-semibold text-slate-600 mt-0.5">6d</span>
+              </button>
+            </div>
+
+            <!-- Helpful Keyboard Shortcut Strip -->
+            <div class="flex flex-wrap items-center justify-center gap-3 sm:gap-5 pt-3 text-xs font-medium text-slate-500 select-none">
+              <span class="inline-flex items-center gap-1.5"><kbd class="bg-slate-200/90 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold text-slate-800 shadow-2xs">Space</kbd> Lật thẻ</span>
+              <span class="hidden sm:inline text-slate-300">•</span>
+              <span class="inline-flex items-center gap-1.5"><kbd class="bg-slate-200/90 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold text-slate-800 shadow-2xs">1-4</kbd> Đánh giá</span>
+              <span class="hidden sm:inline text-slate-300">•</span>
+              <span class="inline-flex items-center gap-1.5"><kbd class="bg-slate-200/90 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold text-slate-800 shadow-2xs">Ctrl+Z</kbd> Hoàn tác</span>
+              <span class="hidden sm:inline text-slate-300">•</span>
+              <span class="inline-flex items-center gap-1.5"><kbd class="bg-slate-200/90 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold text-slate-800 shadow-2xs">E</kbd> Sửa</span>
+              <span class="hidden sm:inline text-slate-300">•</span>
+              <span class="inline-flex items-center gap-1.5"><kbd class="bg-slate-200/90 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold text-slate-800 shadow-2xs">← / →</kbd> Chuyển thẻ</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+
+      <!-- ==================================================================
+           SCREEN 3: Ebbinghaus Analytics (Desktop Edge-to-Edge Panel)
+           ================================================================== -->
+      <section id="frame-3" class="desktop-panel-card" aria-label="Screen 3: Ebbinghaus Analytics">
+        
+        <div class="screen-scroll-body p-6 sm:p-8 lg:p-10 w-full flex flex-col justify-between h-full gap-6">
+          
+          <!-- Top Bar -->
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+              <button id="s3BackBtn" aria-label="Back to Active Deck" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all active:scale-95 shadow-2xs" title="Quay lại thẻ học">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                <span>Deck</span>
+              </button>
+              <h2 class="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">Phân tích đường cong lãng quên (Ebbinghaus Analytics)</h2>
+            </div>
+            <span class="text-xs font-bold text-[#4338CA] bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full font-mono">SM-2 Spaced Retention</span>
+          </div>
+
+          <!-- 1. Full-Width Expansive Forgetting Curve Chart Card -->
+          <div class="bg-gradient-anki text-white p-6 sm:p-8 rounded-3xl relative overflow-hidden shadow-sm w-full">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <h3 class="text-lg sm:text-xl font-extrabold tracking-tight">Mô hình đường cong ghi nhớ (Memory Retention Curve)</h3>
+                  <span class="text-xs font-mono font-semibold bg-white/20 text-white px-2.5 py-0.5 rounded-full">0–30 Days</span>
+                </div>
+                <p class="text-xs sm:text-sm text-indigo-100 font-medium">
+                  Quy luật quên lãng tự nhiên: <span class="font-serif italic font-bold text-white">R</span> = <span class="font-serif italic font-bold text-white">e</span><sup>−<span class="font-serif italic">t</span>/<span class="font-serif italic">S</span></sup> (Độ bền trí nhớ <span class="font-serif italic">S</span> tăng vọt sau mỗi lần ôn tập ngắt quãng)
+                </p>
+              </div>
+
+              <!-- Curve Legend -->
+              <div class="flex items-center gap-4 text-xs text-indigo-100 font-medium bg-white/10 px-4 py-2 rounded-xl backdrop-blur-xs shrink-0">
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="w-3.5 h-1 bg-white rounded-full"></span> Ôn tập SM-2
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="w-3.5 h-1 border-t-2 border-dashed border-white/60"></span> Quên tự nhiên (Không ôn)
+                </span>
+              </div>
+            </div>
+
+            <!-- Full-Width Canvas for Chart.js -->
+            <div class="chart-canvas-container relative w-full h-[280px] sm:h-[340px] lg:h-[380px] mt-2">
+              <canvas id="ebbinghausChart"></canvas>
+            </div>
+          </div>
+
+          <!-- 2. Balanced 3-Column Metrics Grid Under Chart -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 w-full">
+            
+            <!-- Card 1: Next Review Countdown Box -->
+            <div class="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Đếm ngược đợt ôn kế tiếp</span>
+                <span id="s3RetentionPill" class="text-xs font-bold font-mono text-[#4338CA] bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-md">86% Retention</span>
+              </div>
+
+              <!-- Flip-digit style numbers: [0][1][2] days [0][4] hours -->
+              <div class="flex items-center justify-center gap-2 my-4">
+                <div class="flex items-center gap-1">
+                  <div id="digitDay0" class="flip-digit-box">0</div>
+                  <div id="digitDay1" class="flip-digit-box">1</div>
+                  <div id="digitDay2" class="flip-digit-box">2</div>
+                </div>
+                <span class="text-xs font-bold text-slate-500 mx-1">ngày</span>
+                <div class="flex items-center gap-1">
+                  <div id="digitHour0" class="flip-digit-box">0</div>
+                  <div id="digitHour1" class="flip-digit-box">4</div>
+                </div>
+                <span class="text-xs font-bold text-slate-500 mx-1">giờ</span>
+              </div>
+
+              <div class="text-center text-xs text-slate-400 border-t border-slate-100 pt-2.5">
+                SM-2 tự động nhắc lại đúng vào điểm vàng sắp quên
+              </div>
+            </div>
+
+            <!-- Card 2: Total Mastered Words -->
+            <div class="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Từ vựng đã nhớ sâu</span>
+                <span class="text-xs font-bold font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md">EF ≥ 2.5</span>
+              </div>
+
+              <div class="text-center my-3">
+                <div id="statMasteredCount" class="text-3xl sm:text-4xl font-extrabold text-slate-900 font-mono tracking-tight">4 từ</div>
+                <p class="text-xs text-slate-500 mt-1.5">Đã khắc sâu vào trí nhớ dài hạn (Long-term Memory)</p>
+              </div>
+
+              <div class="text-center text-xs text-slate-400 border-t border-slate-100 pt-2.5">
+                Khoảng cách ôn tập &gt; 21 ngày với tỷ lệ nhớ &gt; 90%
+              </div>
+            </div>
+
+            <!-- Card 3: Vocabulary Stability Tiers Progress Bars -->
+            <div class="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-2xs md:col-span-2 lg:col-span-1 flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Phân tầng độ bền trí nhớ</span>
+                <span class="text-xs font-bold text-[#4F46E5]">3 Cấp độ</span>
+              </div>
+
+              <div class="flex flex-col gap-3 my-2">
+                <!-- Tier 1: Mature Cards (>21d) -->
+                <div class="flex flex-col gap-1.5">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full bg-[#4F46E5]"></span> Thẻ thuần thục (&gt;21d)
+                    </span>
+                    <span id="metaMatureTier" class="text-slate-500 font-semibold font-mono text-[11px]">150 words | 92%</span>
+                  </div>
+                  <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div id="barMatureTier" class="h-full bg-[#4F46E5] rounded-full transition-all duration-500" style="width: 92%;"></div>
+                  </div>
+                </div>
+
+                <!-- Tier 2: Young Cards (1–21d) -->
+                <div class="flex flex-col gap-1.5">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full bg-[#818CF8]"></span> Thẻ đang nhớ (1–21d)
+                    </span>
+                    <span id="metaYoungTier" class="text-slate-500 font-semibold font-mono text-[11px]">68 words | 78%</span>
+                  </div>
+                  <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div id="barYoungTier" class="h-full bg-[#818CF8] rounded-full transition-all duration-500" style="width: 78%;"></div>
+                  </div>
+                </div>
+
+                <!-- Tier 3: Learning Queue (<1d) -->
+                <div class="flex flex-col gap-1.5">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full bg-amber-500"></span> Đang học mới (&lt;1d)
+                    </span>
+                    <span id="metaLearningTier" class="text-slate-500 font-semibold font-mono text-[11px]">12 words | 45%</span>
+                  </div>
+                  <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div id="barLearningTier" class="h-full bg-amber-500 rounded-full transition-all duration-500" style="width: 45%;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="text-center text-xs text-slate-400 border-t border-slate-100 pt-2.5">
+                Tự động thăng cấp khi ôn tập liên tiếp
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ======================================================================
+       MODAL 1: HƯỚNG DẪN SỬ DỤNG (GUIDE / HELP MODAL)
+       ====================================================================== -->
+  <div id="modalGuide" role="dialog" aria-modal="true" aria-labelledby="modalGuideTitle" class="fixed inset-0 bg-[#1E1B4B]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-card w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div class="p-4 px-6 bg-[#F8FAFC] border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-[#5B42F3] text-white flex items-center justify-center font-bold text-xs">?</span>
+          <h3 id="modalGuideTitle" class="text-base font-extrabold text-slate-900">User Guide & Memory Science</h3>
+        </div>
+        <button id="btnCloseGuideModal" aria-label="Close guide dialog" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex flex-col gap-4 text-xs text-slate-900 leading-relaxed">
+        <div class="bg-purple-50 border border-slate-200 p-3.5 rounded-xl">
+          <h4 class="font-extrabold text-[#5B42F3] mb-1">1. Thuật Toán Lặp Lại Ngắt Quãng SM-2 (Anki)</h4>
+          <p>Mỗi flashcard lưu trữ 3 tham số: <strong>Repetitions</strong> (số lần nhớ liên tiếp), <strong>Interval</strong> (khoảng cách ngày ôn kế tiếp), và <strong>Ease Factor</strong> (hệ số độ dễ, khởi điểm 2.5).</p>
+          <ul class="list-disc pl-4 mt-1.5 space-y-0.5 text-slate-700">
+            <li><strong>Again (&lt;10m):</strong> Quên hoàn toàn, reset chu kỳ về ngày mai hoặc 10 phút.</li>
+            <li><strong>Hard (1d):</strong> Nhớ nhưng rất khó khăn, tăng khoảng cách nhẹ (1.2x).</li>
+            <li><strong>Good (3d):</strong> Nhớ đúng sau vài giây suy nghĩ (nhân hệ số EF).</li>
+            <li><strong>Easy (6d):</strong> Nhớ hoàn hảo ngay tức khắc (thưởng thêm 1.3x).</li>
+          </ul>
+        </div>
+
+        <div class="bg-orange-50 border border-orange-200 p-3.5 rounded-xl">
+          <h4 class="font-extrabold text-[#FF8A48] mb-1">2. Đường Cong Quên Lãng Ebbinghaus ($R = e^{-t/S}$)</h4>
+          <p>Trí nhớ con người suy giảm theo hàm số mũ tự nhiên $e^{-t/S}$. Mỗi lần bạn bấm ôn tập đúng thời điểm, trí nhớ nhảy vọt về <strong>100%</strong> và độ bền $S$ tăng lên, giúp đường cong phẳng dần và chuyển thành trí nhớ vĩnh viễn.</p>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 p-3.5 rounded-xl">
+          <h4 class="font-extrabold text-slate-900 mb-1">3. Bộ Phân Tích Nhập Hàng Loạt Thông Minh (Hyphen-Safe)</h4>
+          <p>Để bảo toàn các từ vựng tiếng Anh có dấu gạch nối (ví dụ: <code>state-of-the-art</code>, <code>mother-in-law</code>), bộ phân tích áp dụng độ ưu tiên:</p>
+          <ul class="list-disc pl-4 mt-1 space-y-0.5 text-slate-700">
+            <li><strong>Ưu tiên 1 (Tab `\t`):</strong> Copy trực tiếp 2 cột từ Excel hoặc Google Sheets.</li>
+            <li><strong>Ưu tiên 2 (Gạch nối có khoảng trắng ` - `):</strong> Chỉ tách khi có khoảng trắng xung quanh dấu gạch nối. Gạch nối nội bộ giữa các từ không bao giờ bị cắt!</li>
+            <li><strong>Ưu tiên 3 (Dấu hai chấm hoặc dấu gạch đứng ` : ` / ` | `):</strong> Hỗ trợ các cú pháp ghi chú từ điển phổ biến.</li>
+          </ul>
+        </div>
+
+        <div class="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl">
+          <h4 class="font-extrabold text-emerald-800 mb-1">4. Phím Tắt Nhanh (Keyboard Shortcuts)</h4>
+          <div class="grid grid-cols-2 gap-2 mt-1 font-mono text-[11px]">
+            <span><kbd class="bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-xs">Space</kbd>: Lật thẻ</span>
+            <span><kbd class="bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-xs">1 – 4</kbd>: Đánh giá SM-2</span>
+            <span><kbd class="bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-xs">Ctrl+Z / Z</kbd>: Hoàn tác</span>
+            <span><kbd class="bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-xs">E</kbd>: Sửa thẻ trực tiếp</span>
+            <span><kbd class="bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-xs">← / →</kbd>: Thẻ trước / kế</span>
+            <span><kbd class="bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-xs">R</kbd>: Phát âm từ (Audio)</span>
+            <span><kbd class="bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-xs">Esc</kbd>: Đóng hộp thoại</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 px-6 bg-slate-50 border-t border-slate-200 text-right">
+        <button id="btnDismissGuideModal" class="bg-gradient-anki text-white font-bold text-xs px-5 py-2 rounded-full shadow-sm active:scale-95 transition-transform">
+          Đã Hiểu
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 2: EXCEL & DATA SYNC HUB (SheetJS XLSX Integration)
+       ====================================================================== -->
+  <div id="modalExcelHub" role="dialog" aria-modal="true" aria-labelledby="modalExcelHubTitle" class="fixed inset-0 bg-[#1E1B4B]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-card w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div class="p-4 px-6 bg-[#F8FAFC] border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
+            X
+          </div>
+          <h3 id="modalExcelHubTitle" class="text-base font-extrabold text-slate-900">Excel & Data Sync Hub</h3>
+        </div>
+        <button id="btnCloseExcelHubModal" aria-label="Close data sync dialog" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex flex-col gap-4 text-xs text-slate-900">
+        
+        <!-- Section: Export Data -->
+        <div class="border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
+          <h4 class="font-extrabold text-sm mb-1 text-slate-900">1. Xuất Dữ Liệu Flashcard (Export)</h4>
+          <p class="text-slate-500 mb-3">Tải về toàn bộ thẻ kèm thông số SM-2 (Repetitions, Interval, Due Date).</p>
+          <div class="flex flex-wrap gap-2">
+            <button id="btnExportExcel" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-full shadow-sm flex items-center gap-1.5 transition-all active:scale-95">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Xuất File Excel (.xlsx)
+            </button>
+            <button id="btnExportCSV" class="bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-bold px-4 py-2 rounded-full shadow-sm transition-all active:scale-95">
+              Xuất File CSV
+            </button>
+            <button id="btnExportJSON" class="bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-bold px-4 py-2 rounded-full shadow-sm transition-all active:scale-95">
+              Sao lưu JSON
+            </button>
+          </div>
+        </div>
+
+        <!-- Section: Import Data with SheetJS -->
+        <div class="border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
+          <h4 class="font-extrabold text-sm mb-1 text-slate-900">2. Nhập Từ Excel / CSV (SheetJS Import)</h4>
+          <p class="text-slate-500 mb-3">Chọn tệp Excel (.xlsx, .xls) hoặc CSV. Ứng dụng tự động phát hiện 2 cột Front & Back.</p>
+
+          <label class="border-2 border-dashed border-purple-300 hover:border-[#5B42F3] bg-purple-50/50 rounded-2xl p-5 text-center flex flex-col items-center justify-center cursor-pointer transition-all">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#5B42F3] mb-1">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span class="font-bold text-xs text-[#5B42F3]">Chọn tệp Excel (.xlsx, .csv)</span>
+            <span class="text-[10px] text-slate-500 mt-0.5">hoặc kéo thả tệp vào đây</span>
+            <input id="excelFileInput" type="file" accept=".xlsx, .xls, .csv, .json" class="hidden">
+          </label>
+
+          <div class="mt-2.5 flex items-center justify-between">
+            <button id="btnDownloadTemplate" class="text-[11px] font-bold text-emerald-700 hover:underline inline-flex items-center gap-1">
+              ⬇ Tải file Excel mẫu 2 cột (Sample Template)
+            </button>
+            <button id="btnResetDefaultDeck" class="text-[11px] font-bold text-rose-600 hover:underline">
+              Khôi phục 10 thẻ mặc định
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="p-3 px-6 bg-slate-50 border-t border-slate-200 text-right">
+        <button id="btnDoneExcelHub" class="bg-gradient-anki text-white font-bold text-xs px-5 py-2 rounded-full shadow-sm active:scale-95 transition-transform">
+          Hoàn Tất
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 3: EDIT FLASHCARD MODAL (Direct In-Place Edit)
+       ====================================================================== -->
+  <div id="modalEditCard" role="dialog" aria-modal="true" aria-labelledby="modalEditCardTitle" class="fixed inset-0 bg-[#1E1B4B]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-card w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="p-4 px-6 bg-[#F8FAFC] border-b border-slate-200 flex items-center justify-between">
+        <h3 id="modalEditCardTitle" class="text-sm font-extrabold text-slate-900">Edit Flashcard</h3>
+        <button id="btnCloseEditModal" aria-label="Close edit card dialog" class="text-slate-400 hover:text-slate-600 text-base font-bold">✕</button>
+      </div>
+
+      <form id="formEditCard" class="p-5 flex flex-col gap-3">
+        <input type="hidden" id="editCardId">
+        
+        <div>
+          <label for="editCardFront" class="block text-xs font-bold text-slate-900 mb-1">Front (Word / Term)*</label>
+          <input id="editCardFront" type="text" class="w-full text-xs border border-slate-200 rounded-xl p-2 outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100" required>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label for="editCardPhonetic" class="block text-xs font-bold text-slate-900 mb-1">Phonetic (optional)</label>
+            <input id="editCardPhonetic" type="text" class="w-full text-xs border border-slate-200 rounded-xl p-2 outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100">
+          </div>
+          <div>
+            <label for="editCardPos" class="block text-xs font-bold text-slate-900 mb-1">Part of Speech</label>
+            <select id="editCardPos" class="w-full text-xs border border-slate-200 rounded-xl p-2 outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100">
+              <option value="adjective">Adjective</option>
+              <option value="noun">Noun</option>
+              <option value="verb">Verb</option>
+              <option value="adverb">Adverb</option>
+              <option value="phrase">Phrase / Idiom</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label for="editCardBack" class="block text-xs font-bold text-slate-900 mb-1">Back (Definition / Meaning)*</label>
+          <textarea id="editCardBack" rows="2" class="w-full text-xs border border-slate-200 rounded-xl p-2 outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100" required></textarea>
+        </div>
+
+        <div>
+          <label for="editCardExample" class="block text-xs font-bold text-slate-900 mb-1">Example Sentence</label>
+          <input id="editCardExample" type="text" class="w-full text-xs border border-slate-200 rounded-xl p-2 outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button id="btnCancelEditModal" type="button" class="text-xs font-semibold px-4 py-2 rounded-full border border-slate-200">
+            Hủy
+          </button>
+          <button type="submit" class="bg-gradient-anki text-white text-xs font-bold px-5 py-2 rounded-full shadow-sm">
+            Lưu Thay Đổi
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  
+  <!-- ======================================================================
+       MODAL 4: ADD FLASHCARDS (Dedicated Single & Bulk Add Modal)
+       ====================================================================== -->
+  <div id="modalAddCards" role="dialog" aria-modal="true" aria-labelledby="modalAddCardsTitle" class="fixed inset-0 bg-[#1E1B4B]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-card w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div class="p-4 px-6 bg-[#F8FAFC] border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 rounded-full bg-[#5B42F3] text-white flex items-center justify-center font-bold text-xs">
+            +
+          </div>
+          <h3 id="modalAddCardsTitle" class="text-base font-extrabold text-slate-900">Add Flashcards to Deck</h3>
+        </div>
+        <button id="btnCloseAddCardsModal" aria-label="Close add cards dialog" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="p-5 overflow-y-auto flex flex-col gap-4">
+        <!-- Dual Mode Switcher -->
+        <div class="flex items-center gap-2 bg-[#F8FAFC] p-1 rounded-full text-xs font-bold">
+          <button id="tabSingleAddBtn" class="flex-1 py-1.5 rounded-full bg-white text-[#4F46E5] shadow-sm transition-all text-center">
+            Single Card
+          </button>
+          <button id="tabBulkAddBtn" class="flex-1 py-1.5 rounded-full text-slate-500 hover:text-[#4F46E5] transition-all text-center">
+            Bulk Ingestion (Nhập hàng loạt)
+          </button>
+        </div>
+
+        <!-- Panel 1: Single Add Form -->
+        <div id="panelSingleAdd" class="flex flex-col gap-3">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label for="singleAddFront" class="block text-xs font-bold text-slate-900 mb-1">Front (Word/Term)*</label>
+              <input id="singleAddFront" type="text" placeholder="e.g. ubiquitous" class="w-full text-xs border border-slate-200 rounded-xl p-2 outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100">
+            </div>
+            <div>
+              <label for="singleAddPhonetic" class="block text-xs font-bold text-slate-900 mb-1">Phonetic Guide</label>
+              <input id="singleAddPhonetic" type="text" placeholder="e.g. /juːˈbɪk.wə.təs/" class="w-full text-xs border border-slate-200 rounded-xl p-2 outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100">
+            </div>
+          </div>
+          <div>
+            <label for="singleAddBack" class="block text-xs font-bold text-slate-900 mb-1">Back (Definition/Meaning)*</label>
+            <input id="singleAddBack" type="text" placeholder="e.g. Present everywhere simultaneously." class="w-full text-xs border border-slate-200 rounded-xl p-2 outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100">
+          </div>
+          <div>
+            <label for="singleAddExample" class="block text-xs font-bold text-slate-900 mb-1">Example Sentence</label>
+            <input id="singleAddExample" type="text" placeholder="e.g. Smartphones have become ubiquitous in modern life." class="w-full text-xs border border-slate-200 rounded-xl p-2 outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100">
+          </div>
+          <div class="flex items-center justify-between pt-2">
+            <span class="text-xs text-slate-500">Tip: Press <kbd class="bg-slate-200 px-1.5 py-0.5 rounded text-xs font-mono font-semibold text-slate-800">Ctrl+Enter</kbd> to save</span>
+            <button id="btnSaveSingleCard" class="bg-gradient-anki text-white text-xs font-bold px-5 py-2 rounded-full shadow-sm hover:scale-105 active:scale-95 transition-all">
+              + Add Card
+            </button>
+          </div>
+        </div>
+
+        <!-- Panel 2: Bulk Add Form -->
+        <div id="panelBulkAdd" class="hidden flex flex-col gap-2.5">
+          <div class="flex items-center justify-between text-[11px] text-slate-500">
+            <span>1 card / line (Tab <kbd class="font-mono">\t</kbd> or space-hyphen-space <kbd class="font-mono"> - </kbd>)</span>
+            <span id="bulkParseCountBadge" class="font-bold text-[#5B42F3]">0 cards detected</span>
+          </div>
+          <label for="bulkAddTextarea" class="sr-only">Bulk Add Textarea</label>
+          <textarea id="bulkAddTextarea" rows="6" placeholder="Paste 50-100 lines here...
+state-of-the-art - hiện đại nhất (hyphen protected!)
+ephemeral - fleeting; lasting very short time
+ubiquitous	present everywhere (Tab-separated)
+matter-of-fact : straightforward" class="w-full text-xs font-mono border border-slate-200 rounded-xl p-2.5 outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100 resize-none"></textarea>
+          
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <div class="flex gap-1.5">
+              <button id="btnBulkLoadExcelSample" class="text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200 transition-all active:scale-95">
+                + Excel Tab Sample
+              </button>
+              <button id="btnBulkLoadHyphenSample" class="text-xs font-semibold bg-indigo-50 text-[#4338CA] hover:bg-indigo-100 px-3 py-1 rounded-full border border-indigo-200 transition-all active:scale-95">
+                + Hyphenated Sample
+              </button>
+            </div>
+            <button id="btnExecuteBulkAdd" class="bg-gradient-anki text-white text-xs font-bold px-4 py-2 rounded-full shadow-sm hover:scale-105 active:scale-95 transition-all">
+              Parse & Import All (<kbd class="font-mono">Ctrl+Enter</kbd>)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 5: CUSTOM CONFIRMATION ACTION DIALOG (Replaces native confirm())
+       ====================================================================== -->
+  <div id="modalConfirmAction" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-card w-full max-w-sm shadow-2xl border border-slate-200 p-6 text-center flex flex-col items-center">
+      <div id="confirmDialogIcon" class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-3">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+      </div>
+      <h3 id="confirmDialogTitle" class="text-base font-extrabold text-slate-900 mb-1">Xác nhận thao tác</h3>
+      <p id="confirmDialogMessage" class="text-xs text-slate-600 mb-5 leading-relaxed">Bạn có chắc chắn muốn thực hiện thao tác này?</p>
+      <div class="flex items-center justify-center gap-2.5 w-full">
+        <button id="btnCancelConfirmAction" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all active:scale-95">
+          Hủy
+        </button>
+        <button id="btnProceedConfirmAction" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition-all active:scale-95">
+          Xác nhận
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 6: IMPORT VOCABULARY JSON (Merge or Overwrite)
+       ====================================================================== -->
+  <div id="modalImportJSON" role="dialog" aria-modal="true" aria-labelledby="modalImportJSONTitle" class="fixed inset-0 bg-[#1E1B4B]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-card w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="p-4 px-6 bg-[#F8FAFC] border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-xl bg-indigo-50 text-[#4F46E5] flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+          <h3 id="modalImportJSONTitle" class="text-base font-extrabold text-slate-900">Nhập từ vựng từ file JSON</h3>
+        </div>
+        <button id="btnCloseImportJSONModal" aria-label="Đóng hộp thoại nhập file" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="p-5 flex flex-col gap-4">
+        <!-- File Picker Area -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Chọn file sao lưu (.json) từ máy tính hoặc điện thoại</label>
+          <input id="inputJSONFile" type="file" accept=".json,application/json" class="hidden">
+          <label for="inputJSONFile" class="flex flex-col items-center justify-center p-5 border-2 border-dashed border-slate-200 hover:border-[#4F46E5] rounded-2xl cursor-pointer bg-slate-50 hover:bg-indigo-50/40 transition-all text-center">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 mb-2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="12" y2="12"></line>
+              <line x1="15" y1="15" x2="12" y2="12"></line>
+            </svg>
+            <span id="jsonFileNameDisplay" class="text-xs font-bold text-[#4F46E5]">Nhấp để chọn file JSON</span>
+            <span class="text-[11px] text-slate-500 mt-0.5">Hỗ trợ file xuất từ hệ thống (.json)</span>
+          </label>
+          <div id="jsonFileStatusBadge" class="hidden mt-2 text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+            ✓ Đã phát hiện 0 thẻ từ vựng hợp lệ.
+          </div>
+        </div>
+
+        <!-- Mode Selection -->
+        <div class="flex flex-col gap-2">
+          <label class="block text-xs font-bold text-slate-700">Chế độ nạp từ vựng</label>
+          
+          <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-indigo-300 bg-white cursor-pointer transition-all">
+            <input type="radio" name="jsonImportMode" value="merge" checked class="mt-0.5 text-[#4F46E5] focus:ring-[#4F46E5]">
+            <div class="flex flex-col">
+              <span class="text-xs font-bold text-slate-900">Gộp thêm vào kho từ hiện tại (Khuyên dùng)</span>
+              <span class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">Tự động bỏ qua các từ đã tồn tại (không trùng lặp) và bảo lưu toàn bộ tiến độ học hiện có.</span>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-rose-300 bg-white cursor-pointer transition-all">
+            <input type="radio" name="jsonImportMode" value="overwrite" class="mt-0.5 text-rose-600 focus:ring-rose-500">
+            <div class="flex flex-col">
+              <span class="text-xs font-bold text-slate-900">Ghi đè toàn bộ kho từ</span>
+              <span class="text-[11px] text-rose-600 mt-0.5 leading-relaxed">CẢNH BÁO: Thay thế hoàn toàn kho từ hiện tại bằng toàn bộ danh sách từ file được chọn.</span>
+            </div>
+          </label>
+        </div>
+
+        <!-- Modal Actions -->
+        <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+          <button id="btnCancelImportJSONModal" type="button" class="text-xs font-bold px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">
+            Hủy
+          </button>
+          <button id="btnConfirmImportJSON" type="button" disabled class="bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-bold px-5 py-2 rounded-xl shadow-xs transition-all opacity-50 cursor-not-allowed">
+            Nạp từ vựng
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 7: BULK MANAGE & DELETE FLASHCARDS
+       ====================================================================== -->
+  <div id="modalBulkDeleteCards" role="dialog" aria-modal="true" aria-labelledby="modalBulkDeleteCardsTitle" class="fixed inset-0 bg-[#1E1B4B]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-card w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div class="p-4 px-6 bg-[#F8FAFC] border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </div>
+          <h3 id="modalBulkDeleteCardsTitle" class="text-base font-extrabold text-slate-900">Chọn & Xóa nhiều thẻ</h3>
+        </div>
+        <button id="btnCloseBulkDeleteModal" aria-label="Đóng hộp thoại xóa nhiều thẻ" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="p-5 overflow-y-auto flex flex-col gap-3">
+        <!-- Search filter inside modal -->
+        <div class="relative flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 focus-within:border-[#4F46E5] focus-within:bg-white transition-all">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 mr-2 shrink-0">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input id="bulkDeleteSearchInput" type="text" placeholder="Lọc từ vựng cần xóa..." class="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 outline-none font-medium">
+        </div>
+
+        <!-- Master Select All bar -->
+        <div class="flex items-center justify-between px-3 py-2 bg-slate-100/80 rounded-xl text-xs font-bold text-slate-700">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="bulkSelectAllCheckbox" class="rounded text-[#4F46E5] focus:ring-[#4F46E5] w-4 h-4">
+            <span>Chọn tất cả (<span id="bulkTotalAvailableCount">0</span> từ)</span>
+          </label>
+          <span id="bulkSelectedCountPill" class="text-[#4F46E5] bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full text-[11px] font-mono">Đã chọn 0 thẻ</span>
+        </div>
+
+        <!-- Scrollable Cards Checklist Container -->
+        <div id="bulkCardsListContainer" class="flex flex-col gap-1.5 max-h-72 overflow-y-auto pr-1">
+          <!-- Populated dynamically -->
+        </div>
+
+        <!-- Action Footer -->
+        <div class="flex items-center justify-between gap-2.5 pt-3 border-t border-slate-100">
+          <button id="btnCancelBulkDeleteModal" type="button" class="text-xs font-bold px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">
+            Hủy
+          </button>
+          <button id="btnConfirmDeleteSelected" type="button" disabled class="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-5 py-2 rounded-xl shadow-xs transition-all opacity-50 cursor-not-allowed">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span id="bulkDeleteBtnText">Xóa thẻ đã chọn</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- ======================================================================
+       RESPONSIVE MOBILE BOTTOM NAVIGATION BAR (Visible only on < 768px)
+       ====================================================================== -->
+  <nav id="mobileBottomNav" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-4 py-2 flex items-center justify-around shadow-lg" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom));" aria-label="Mobile Navigation">
+    <button id="mobileNavHub" class="mobile-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-500 hover:text-[#4F46E5] transition-all" data-target="screen-1" aria-label="Switch to Hub Screen">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span class="text-[11px] font-semibold mt-0.5">Hub</span>
+    </button>
+    <button id="mobileNavStudy" class="mobile-nav-btn active flex-1 flex flex-col items-center justify-center py-1 text-[#4F46E5] font-bold transition-all relative" data-target="screen-2" aria-label="Switch to Study Screen">
+      <div class="relative">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+          <path d="m9 8 6 4-6 4Z"></path>
+        </svg>
+        <span id="mobileNavDueBadge" class="absolute -top-1 -right-2.5 bg-[#4F46E5] text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full font-mono">12</span>
+      </div>
+      <span class="text-[11px] font-bold mt-0.5">Study</span>
+    </button>
+    <button id="mobileNavAnalytics" class="mobile-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-500 hover:text-[#4F46E5] transition-all" data-target="screen-3" aria-label="Switch to Analytics Screen">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 3v18h18"></path>
+        <path d="m19 9-5 5-4-4-3 3"></path>
+      </svg>
+      <span class="text-[11px] font-semibold mt-0.5">Analytics</span>
+    </button>
+  </nav>
+<!-- Toast Notification Pill -->
+  <div id="toastNotification" role="status" aria-live="polite" class="toast-pill fixed bottom-20 md:bottom-6 right-4 sm:right-6 bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/60 px-4 sm:px-5 py-2.5 rounded-full text-xs font-bold shadow-2xl z-50 flex items-center gap-2.5">
+    <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+    <span>Đã cập nhật dữ liệu</span>
+  </div>
+
+  <!-- ======================================================================
+       CORE JAVASCRIPT: SM-2 MATH, SMART BULK ADD, SHEETJS & CHART.JS
+       ====================================================================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      // =====================================================================
+      // 1. SM-2 SPACED REPETITION ALGORITHM
+      // =====================================================================
+      const SM2_GRADES = {
+        AGAIN: 1, // Complete blackout
+        HARD: 2,  // Significant hesitation
+        GOOD: 3,  // Successful recall with effort
+        EASY: 4   // Instant recall
+      };
+
+      function calculateSM2(card, grade) {
+        let repetitions = card.repetitions || 0;
+        let interval = card.interval || 0;
+        let easeFactor = card.easeFactor || 2.5;
+
+        // Map grade to SuperMemo Q-value (1, 3, 4, 5)
+        let q;
+        if (grade === SM2_GRADES.AGAIN) q = 1;
+        else if (grade === SM2_GRADES.HARD) q = 3;
+        else if (grade === SM2_GRADES.GOOD) q = 4;
+        else if (grade === SM2_GRADES.EASY) q = 5;
+        else q = grade;
+
+        if (q < 3) {
+          // Failed recall
+          repetitions = 0;
+          interval = 1; // Due next day (or learning queue)
+        } else {
+          // Successful recall
+          if (repetitions === 0) {
+            interval = (q === 3) ? 1 : ((q === 4) ? 1 : 3);
+          } else if (repetitions === 1) {
+            interval = (q === 3) ? 2 : ((q === 4) ? 6 : 7);
+          } else {
+            if (q === 3) {
+              interval = Math.max(interval + 1, Math.round(interval * 1.2));
+            } else if (q === 4) {
+              interval = Math.round(interval * easeFactor);
+            } else {
+              interval = Math.round(interval * easeFactor * 1.3);
+            }
+          }
+          repetitions += 1;
+        }
+
+        // Standard SM-2 Ease Factor formula:
+        // EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
+        easeFactor = easeFactor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
+        if (easeFactor < 1.3) easeFactor = 1.3;
+        easeFactor = Math.round(easeFactor * 100) / 100;
+
+        const now = Date.now();
+        const dueDate = new Date(now + interval * 24 * 60 * 60 * 1000).toISOString();
+
+        return {
+          ...card,
+          repetitions,
+          interval,
+          easeFactor,
+          lastReviewed: new Date(now).toISOString(),
+          dueDate,
+          lastGrade: grade
+        };
+      }
+
+      function previewIntervals(card) {
+        const again = calculateSM2(card, SM2_GRADES.AGAIN);
+        const hard = calculateSM2(card, SM2_GRADES.HARD);
+        const good = calculateSM2(card, SM2_GRADES.GOOD);
+        const easy = calculateSM2(card, SM2_GRADES.EASY);
+
+        return {
+          again: formatIntervalStr(again.interval, true),
+          hard: formatIntervalStr(hard.interval),
+          good: formatIntervalStr(good.interval),
+          easy: formatIntervalStr(easy.interval)
+        };
+      }
+
+      function formatIntervalStr(days, isAgain = false) {
+        if (isAgain) return '<10m';
+        if (days <= 1) return '1d';
+        if (days < 30) return `${days}d`;
+        if (days < 365) return `${Math.round(days / 30)}mo`;
+        return `${(days / 365).toFixed(1)}y`;
+      }
+
+      // =====================================================================
+      // 2. CURATED DEFAULT DECK SEED & LOCALSTORAGE
+      // =====================================================================
+      const STORAGE_KEY = 'anki_memory_cast_v2_store';
+
+      const INITIAL_DECK = [
+        {
+          id: 'card_1',
+          front: 'state-of-the-art',
+          back: 'Incorporating the newest ideas and most up-to-date features; cutting-edge.',
+          phonetic: '/ˌsteɪt.əv.ðiːˈɑːrt/',
+          partOfSpeech: 'adjective',
+          example: 'The hospital is equipped with state-of-the-art diagnostic technology.',
+          deck: 'Core Oxford 3000',
+          repetitions: 1,
+          interval: 1,
+          easeFactor: 2.5,
+          dueDate: new Date(Date.now() - 3600 * 1000 * 12).toISOString(), // Due now
+          lastReviewed: new Date(Date.now() - 3600 * 1000 * 36).toISOString()
+        },
+        {
+          id: 'card_2',
+          front: 'ephemeral',
+          back: 'Lasting for a very short time; transitory; fleeting.',
+          phonetic: '/ɪˈfem.ər.əl/',
+          partOfSpeech: 'adjective',
+          example: 'The ephemeral bloom of cherry blossoms draws millions of admirers every spring.',
+          deck: 'Core Oxford 3000',
+          repetitions: 2,
+          interval: 2,
+          easeFactor: 2.6,
+          dueDate: new Date(Date.now() - 3600 * 1000 * 2).toISOString(), // Due now
+          lastReviewed: new Date(Date.now() - 3600 * 1000 * 50).toISOString()
+        },
+        {
+          id: 'card_3',
+          front: 'ubiquitous',
+          back: 'Present, appearing, or found everywhere simultaneously.',
+          phonetic: '/juːˈbɪk.wə.təs/',
+          partOfSpeech: 'adjective',
+          example: 'Smartphones have become ubiquitous in modern metropolitan life.',
+          deck: 'Core Oxford 3000',
+          repetitions: 3,
+          interval: 6,
+          easeFactor: 2.4,
+          dueDate: new Date(Date.now() - 3600 * 1000 * 1).toISOString(), // Due now
+          lastReviewed: new Date(Date.now() - 3600 * 1000 * 145).toISOString()
+        },
+        {
+          id: 'card_4',
+          front: 'serendipity',
+          back: 'The occurrence and development of events by chance in a happy or beneficial way.',
+          phonetic: '/ˌser.ənˈdɪp.ə.ti/',
+          partOfSpeech: 'noun',
+          example: 'Finding his favorite childhood book in a distant bookstore was pure serendipity.',
+          deck: 'Core Oxford 3000',
+          repetitions: 4,
+          interval: 25, // Mature card (>21d)
+          easeFactor: 2.65,
+          dueDate: new Date(Date.now() + 3600 * 1000 * 24 * 14).toISOString(), // Future
+          lastReviewed: new Date(Date.now() - 3600 * 1000 * 24 * 10).toISOString()
+        },
+        {
+          id: 'card_5',
+          front: 'resilient',
+          back: 'Able to withstand or recover quickly from difficult conditions.',
+          phonetic: '/rɪˈzɪl.jənt/',
+          partOfSpeech: 'adjective',
+          example: 'Ecological systems are remarkably resilient when natural habitats are protected.',
+          deck: 'Core Oxford 3000',
+          repetitions: 0,
+          interval: 0,
+          easeFactor: 2.5,
+          dueDate: null, // New word
+          lastReviewed: null
+        },
+        {
+          id: 'card_6',
+          front: 'matter-of-fact',
+          back: 'Unemotional and practical; accepting things as they are without exaggeration.',
+          phonetic: '/ˌmæt̬.ɚ.əvˈfækt/',
+          partOfSpeech: 'adjective',
+          example: 'She reported the breakthrough discovery in a calm, matter-of-fact tone.',
+          deck: 'Advanced Academic',
+          repetitions: 0,
+          interval: 0,
+          easeFactor: 2.5,
+          dueDate: null, // New word
+          lastReviewed: null
+        },
+        {
+          id: 'card_7',
+          front: 'pragmatic',
+          back: 'Dealing with things sensibly and realistically based on practical considerations.',
+          phonetic: '/præɡˈmæt̬.ɪk/',
+          partOfSpeech: 'adjective',
+          example: 'The team adopted a pragmatic approach to meet the aggressive deadline.',
+          deck: 'Core Oxford 3000',
+          repetitions: 2,
+          interval: 4,
+          easeFactor: 2.5,
+          dueDate: new Date(Date.now() + 3600 * 1000 * 24 * 3).toISOString(),
+          lastReviewed: new Date(Date.now() - 3600 * 1000 * 24 * 2).toISOString()
+        },
+        {
+          id: 'card_8',
+          front: 'mother-in-law',
+          back: 'The mother of one\'s spouse.',
+          phonetic: '/ˈmʌð.ɚ.ɪn.lɑː/',
+          partOfSpeech: 'noun',
+          example: 'Her mother-in-law shared the family secret recipe during the holiday dinner.',
+          deck: 'Core Oxford 3000',
+          repetitions: 1,
+          interval: 1,
+          easeFactor: 2.4,
+          dueDate: new Date(Date.now() - 3600 * 1000 * 4).toISOString(), // Due now
+          lastReviewed: new Date(Date.now() - 3600 * 1000 * 28).toISOString()
+        },
+        {
+          id: 'card_9',
+          front: 'mellifluous',
+          back: 'Sweet or musical; pleasant and soothing to hear.',
+          phonetic: '/məˈlɪf.lu.əs/',
+          partOfSpeech: 'adjective',
+          example: 'The narrator possessed a mellifluous voice that captivated the entire auditorium.',
+          deck: 'Advanced Academic',
+          repetitions: 0,
+          interval: 0,
+          easeFactor: 2.5,
+          dueDate: null, // New word
+          lastReviewed: null
+        },
+        {
+          id: 'card_10',
+          front: 'quintessential',
+          back: 'Representing the most perfect or typical example of a quality or class.',
+          phonetic: '/ˌkwɪn.təˈsen.ʃəl/',
+          partOfSpeech: 'adjective',
+          example: 'Afternoon tea is widely regarded as the quintessential British tradition.',
+          deck: 'Core Oxford 3000',
+          repetitions: 3,
+          interval: 28, // Mature card (>21d)
+          easeFactor: 2.7,
+          dueDate: new Date(Date.now() + 3600 * 1000 * 24 * 18).toISOString(),
+          lastReviewed: new Date(Date.now() - 3600 * 1000 * 24 * 8).toISOString()
+        }
+      ];
+
+      function getStoredCards() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DECK));
+            return JSON.parse(JSON.stringify(INITIAL_DECK));
+          }
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed) || parsed.length === 0) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DECK));
+            return JSON.parse(JSON.stringify(INITIAL_DECK));
+          }
+          return parsed;
+        } catch (e) {
+          console.warn('LocalStorage unavailable:', e);
+          return JSON.parse(JSON.stringify(INITIAL_DECK));
+        }
+      }
+
+      function saveStoredCards(cards) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+        } catch (e) {
+          console.error('LocalStorage write failed:', e);
+        }
+      }
+
+      function isCardDue(card, now = Date.now()) {
+        if (!card.dueDate) return false;
+        return new Date(card.dueDate).getTime() <= now;
+      }
+
+      function getDueCards(cards = getStoredCards()) {
+        const now = Date.now();
+        return cards.filter(c => isCardDue(c, now));
+      }
+
+      // =====================================================================
+      // 3. SMART BULK ADD PARSER (Prevent Hyphen Collisions)
+      // =====================================================================
+      /**
+       * Parses multi-line bulk text into flashcards.
+       * Strictly prevents breaking hyphenated words like 'state-of-the-art', 'mother-in-law'.
+       * 
+       * Rules:
+       * 1. Priority 1: Split by Tab (`\t`) - enables pasting 2 columns from Excel
+       * 2. Priority 2: Split by Hyphen with surrounding spaces (`\s+[-–—]\s+`)
+       * 3. Priority 3: Split by colon, double colon or pipe (`\s*(?:::|[:|])\s*`)
+       * 4. Priority 4: Semicolon (`\s*;\s*`)
+       */
+      function parseBulkCardsText(rawText) {
+        if (!rawText || !rawText.trim()) return [];
+
+        const lines = rawText.split(/\r?\n/);
+        const parsedCards = [];
+
+        lines.forEach(rawLine => {
+          const line = rawLine.trim();
+          if (!line || line.startsWith('#') || line.startsWith('//')) {
+            return; // ignore empty or comment lines
+          }
+
+          let front = '';
+          let back = '';
+
+          if (line.includes('\t')) {
+            // Priority 1: Tab separated (Excel copy-paste)
+            const parts = line.split('\t');
+            front = parts[0].trim();
+            back = parts.slice(1).join(' - ').trim();
+          } else if (/\s+[-–—]\s+/.test(line)) {
+            // Priority 2: Space-hyphen-space
+            // This preserves words like 'state-of-the-art' while splitting 'state-of-the-art - definition'
+            const parts = line.split(/\s+[-–—]\s+/);
+            front = parts[0].trim();
+            back = parts.slice(1).join(' - ').trim();
+          } else if (/\s*(?:::|[:|])\s*/.test(line)) {
+            // Priority 3: Colon or Pipe
+            const matchIndex = line.search(/::|[:|]/);
+            if (matchIndex !== -1) {
+              const delimiter = line.substring(matchIndex).match(/::|[:|]/)[0];
+              const parts = line.split(delimiter);
+              front = parts[0].trim();
+              back = parts.slice(1).join(':').trim();
+            }
+          } else if (line.includes(';')) {
+            // Priority 4: Semicolon
+            const parts = line.split(';');
+            front = parts[0].trim();
+            back = parts.slice(1).join(';').trim();
+          } else {
+            // Fallback: 1 column
+            front = line;
+            back = 'No definition specified';
+          }
+
+          if (front) {
+            parsedCards.push({
+              id: 'card_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+              front,
+              back: back || 'Definition pending',
+              phonetic: '',
+              partOfSpeech: 'word',
+              example: '',
+              deck: 'Core Oxford 3000',
+              repetitions: 0,
+              interval: 0,
+              easeFactor: 2.5,
+              dueDate: null,
+              lastReviewed: null
+            });
+          }
+        });
+
+        return parsedCards;
+      }
+
+      // =====================================================================
+      // 4. EBBINGHAUS RETENTION MATHEMATICS & CHART.JS
+      // =====================================================================
+      function calculateCardRetention(card, now = Date.now()) {
+        if (!card.lastReviewed) return card.repetitions > 0 ? 0.9 : 0.45;
+        const elapsedDays = Math.max(0, (now - new Date(card.lastReviewed).getTime()) / (24 * 60 * 60 * 1000));
+        const stability = Math.max(1, card.interval || 1);
+        const retention = Math.exp(-elapsedDays / stability);
+        return Math.min(1, Math.max(0.05, retention));
+      }
+
+      function computeDeckMetrics(cards) {
+        if (!cards || cards.length === 0) {
+          return {
+            total: 0,
+            avgRetention: 85,
+            masteredCount: 0,
+            mature: { count: 0, retention: 92 },
+            young: { count: 0, retention: 78 },
+            learning: { count: 0, retention: 45 },
+            nextReviewDate: null
+          };
+        }
+
+        const now = Date.now();
+        let totalRet = 0;
+        let matureCount = 0;
+        let youngCount = 0;
+        let learningCount = 0;
+        let masteredCount = 0;
+        let earliestDue = null;
+
+        cards.forEach(card => {
+          const r = calculateCardRetention(card, now);
+          totalRet += r;
+
+          const intv = card.interval || 0;
+          if (intv >= 21) {
+            matureCount++;
+            masteredCount++;
+          } else if (intv >= 1) {
+            youngCount++;
+          } else {
+            learningCount++;
+          }
+
+          if (card.dueDate) {
+            const dueTime = new Date(card.dueDate).getTime();
+            if (!earliestDue || dueTime < earliestDue) {
+              earliestDue = dueTime;
+            }
+          }
+        });
+
+        const avgRetention = Math.round((totalRet / cards.length) * 100);
+
+        return {
+          total: cards.length,
+          avgRetention,
+          masteredCount,
+          mature: { count: matureCount, retention: 92 },
+          young: { count: youngCount, retention: 78 },
+          learning: { count: learningCount, retention: 45 },
+          nextReviewDate: earliestDue ? new Date(earliestDue) : null
+        };
+      }
+
+      function getCountdownUnits(targetDate) {
+        if (!targetDate) return { days: ['0', '1', '2'], hours: ['0', '4'] };
+
+        const now = Date.now();
+        const diff = targetDate.getTime() - now;
+        if (diff <= 0) return { days: ['0', '0', '0'], hours: ['0', '0'] };
+
+        const totalHours = Math.floor(diff / (1000 * 60 * 60));
+        const days = Math.floor(totalHours / 24);
+        const hours = totalHours % 24;
+
+        return {
+          days: String(Math.min(999, days)).padStart(3, '0').split(''),
+          hours: String(Math.min(99, hours)).padStart(2, '0').split('')
+        };
+      }
+
+      // Chart.js Instance
+      let ebbinghausChartInstance = null;
+
+      function renderEbbinghausChart() {
+        const canvas = document.getElementById('ebbinghausChart');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Data points across 30 days
+        const daysLabels = ['0d', '1d', '2d', '4d', '7d', '12d', '20d', '30d'];
+
+        // Spaced Repetition Sawtooth Curve:
+        // Day 0: 100% -> Day 1 drops to 45%, Review 1 jumps to 100%
+        // Day 4: 70%, Review 2 jumps to 100%
+        // Day 12: 82%, Review 3 jumps to 100%
+        // Day 30: 92%
+        const spacedData = [100, 48, 85, 72, 94, 86, 96, 92];
+
+        // Without Review Baseline (rapid exponential drop)
+        const noReviewData = [100, 36, 20, 10, 6, 4, 2, 1];
+
+        if (ebbinghausChartInstance) {
+          ebbinghausChartInstance.destroy();
+        }
+
+        ebbinghausChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: daysLabels,
+            datasets: [
+              {
+                label: 'Spaced SM-2 Retention',
+                data: spacedData,
+                borderColor: '#FFFFFF',
+                borderWidth: 2.5,
+                pointBackgroundColor: '#FFFFFF',
+                pointBorderColor: '#4F46E5',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 1.5,
+                pointRadius: 3.5,
+                pointHoverRadius: 6,
+                fill: true,
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                tension: 0.35
+              },
+              {
+                label: 'Without Review',
+                data: noReviewData,
+                borderColor: 'rgba(255, 255, 255, 0.45)',
+                borderWidth: 1.5,
+                borderDash: [4, 4],
+                pointRadius: 0,
+                fill: false,
+                tension: 0.35
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: 'rgba(30, 27, 75, 0.95)',
+                titleFont: { family: 'Lora', size: 10, weight: 'bold' },
+                bodyFont: { family: 'Lora', size: 10 },
+                padding: 6,
+                cornerRadius: 6,
+                callbacks: {
+                  label: function (context) {
+                    return ` Recall: ${context.parsed.y}%`;
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: {
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  font: { family: 'Lora', size: 12, weight: '500' }
+                }
+              },
+              y: {
+                min: 0,
+                max: 100,
+                grid: {
+                  color: 'rgba(255, 255, 255, 0.12)',
+                  borderDash: [3, 3]
+                },
+                ticks: {
+                  stepSize: 25,
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  font: { family: 'Lora', size: 11, weight: '500' },
+                  callback: function (val) {
+                    return val + '%';
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // =====================================================================
+      // 5. APPLICATION STATE & CONTROLLER
+      // =====================================================================
+      const state = {
+        filter: 'due', // 'due' | 'all'
+        searchQuery: '',
+        queue: [],
+        currentIndex: 0,
+        isFlipped: false,
+        activeView: 'panorama'
+      };
+
+      // Toast notification helper
+      let toastTimer = null;
+      function showToast(message) {
+        const toast = document.getElementById('toastNotification');
+        if (!toast) return;
+        toast.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse"></span><span>${message}</span>`;
+        toast.classList.add('show');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+      }
+
+      function updateStudyQueue() {
+        const all = getStoredCards();
+        if (state.searchQuery.trim()) {
+          const q = state.searchQuery.toLowerCase();
+          state.queue = all.filter(c =>
+            c.front.toLowerCase().includes(q) ||
+            c.back.toLowerCase().includes(q)
+          );
+        } else if (state.filter === 'due') {
+          state.queue = getDueCards(all);
+        } else {
+          state.queue = [...all];
+        }
+
+        if (state.currentIndex >= state.queue.length) {
+          state.currentIndex = Math.max(0, state.queue.length - 1);
+        }
+      }
+
+      function refreshUI() {
+        const allCards = getStoredCards();
+        const dueCards = getDueCards(allCards);
+        updateStudyQueue();
+
+        // 1. Screen 1 Update
+        document.getElementById('s1DueCountHero').textContent = dueCards.length;
+        const mobBadge = document.getElementById('mobileNavDueBadge'); if (mobBadge) mobBadge.textContent = dueCards.length;
+        document.getElementById('s1DueSubtitle').textContent = dueCards.length > 0
+          ? `${dueCards.length} cards scheduled for optimal recall today`
+          : 'All scheduled cards reviewed! Memory stabilized';
+        document.getElementById('s1DueBadge').textContent = `${dueCards.length} Due`;
+        document.getElementById('s1TotalBadge').textContent = `${allCards.length} Cards`;
+
+        const metrics = computeDeckMetrics(allCards);
+        document.getElementById('s1AvgRetentionVal').textContent = `${metrics.avgRetention}% Recall`;
+
+        // 2. Screen 2 Update
+        document.getElementById('s2DueCountTile').textContent = dueCards.length;
+        document.getElementById('s2TotalCountTile').textContent = allCards.length;
+
+        // Toggle Total Words bulk action toolbar
+        const totalWordsActionStrip = document.getElementById('totalWordsActionStrip');
+        if (totalWordsActionStrip) {
+          if (state.filter === 'all') {
+            totalWordsActionStrip.classList.remove('hidden');
+          } else {
+            totalWordsActionStrip.classList.add('hidden');
+          }
+        }
+
+        // Tile active indicator
+        const dueTile = document.getElementById('categoryDueTile');
+        const totalTile = document.getElementById('categoryTotalTile');
+        if (state.filter === 'due') {
+          dueTile.classList.add('bg-white', 'text-[#4338CA]', 'shadow-sm');
+          dueTile.classList.remove('text-[#64748B]');
+          totalTile.classList.remove('bg-white', 'text-[#4338CA]', 'shadow-sm');
+          totalTile.classList.add('text-[#64748B]');
+        } else {
+          dueTile.classList.remove('bg-white', 'text-[#4338CA]', 'shadow-sm');
+          dueTile.classList.add('text-[#64748B]');
+          totalTile.classList.add('bg-white', 'text-[#4338CA]', 'shadow-sm');
+          totalTile.classList.remove('text-[#64748B]');
+        }
+
+        // Active Card in Queue
+        const currentCard = state.queue[state.currentIndex];
+        const flipper = document.getElementById('flashcardBoxFlipper');
+        const emptyNotice = document.getElementById('emptyQueueNotice');
+        const gradingRow = document.getElementById('sm2GradingRow');
+
+        if (!currentCard || state.queue.length === 0) {
+          flipper.classList.add('hidden');
+          emptyNotice.classList.remove('hidden');
+          gradingRow.classList.add('opacity-30', 'pointer-events-none');
+          document.getElementById('s2QueueProgressPill').textContent = '0 / 0';
+
+          const emptyIcon = document.getElementById('emptyQueueIcon');
+          const emptyTitle = document.getElementById('emptyQueueTitle');
+          const emptyDesc = document.getElementById('emptyQueueDesc');
+          const emptyBtn = document.getElementById('btnSwitchToAllCards');
+
+          if (state.searchQuery && state.searchQuery.trim()) {
+            if (emptyIcon) emptyIcon.textContent = '🔍';
+            if (emptyTitle) emptyTitle.textContent = 'Không tìm thấy từ vựng';
+            if (emptyDesc) emptyDesc.textContent = `Không có từ nào khớp với từ khóa "${state.searchQuery}". Hãy thử tìm từ khác hoặc xóa bộ lọc.`;
+            if (emptyBtn) {
+              emptyBtn.textContent = 'Xóa bộ lọc tìm kiếm';
+              emptyBtn.dataset.action = 'clear-search';
+            }
+          } else if (allCards.length === 0) {
+            if (emptyIcon) emptyIcon.textContent = '📂';
+            if (emptyTitle) emptyTitle.textContent = 'Kho từ vựng đang trống';
+            if (emptyDesc) emptyDesc.textContent = 'Bạn chưa có từ vựng nào trong kho hoặc đã xóa hết. Hãy thêm thẻ mới hoặc nhập từ file JSON!';
+            if (emptyBtn) {
+              emptyBtn.textContent = '+ Thêm thẻ mới vào kho';
+              emptyBtn.dataset.action = 'add-card';
+            }
+          } else if (state.filter === 'due') {
+            if (emptyIcon) emptyIcon.textContent = '✓';
+            if (emptyTitle) emptyTitle.textContent = 'Đã hoàn thành tất cả thẻ cần ôn!';
+            if (emptyDesc) emptyDesc.textContent = 'Bạn đã ôn tập toàn bộ thẻ đến hạn hôm nay theo thuật toán SM-2. Trí nhớ đang ở trạng thái tối ưu!';
+            if (emptyBtn) {
+              emptyBtn.textContent = 'Ôn tập toàn bộ kho từ (Total Words)';
+              emptyBtn.dataset.action = 'switch-all';
+            }
+          } else {
+            if (emptyIcon) emptyIcon.textContent = '✨';
+            if (emptyTitle) emptyTitle.textContent = 'Toàn bộ kho từ đã duyệt xong!';
+            if (emptyDesc) emptyDesc.textContent = 'Bạn đã duyệt qua tất cả thẻ từ vựng trong kho từ.';
+            if (emptyBtn) {
+              emptyBtn.textContent = 'Ôn lại từ đầu';
+              emptyBtn.dataset.action = 'restart';
+            }
+          }
+        } else {
+          flipper.classList.remove('hidden');
+          emptyNotice.classList.add('hidden');
+          gradingRow.classList.remove('opacity-30', 'pointer-events-none');
+
+          document.getElementById('s2QueueProgressPill').textContent = `${state.currentIndex + 1} / ${state.queue.length}`;
+
+          // Front
+          document.getElementById('cardPartOfSpeechTag').textContent = currentCard.partOfSpeech || 'word';
+          document.getElementById('cardWordFront').textContent = currentCard.front;
+          document.getElementById('cardPhoneticText').textContent = currentCard.phonetic || '';
+
+          // Back
+          document.getElementById('cardDefinitionBack').textContent = currentCard.back;
+          const exContainer = document.getElementById('cardExampleContainer');
+          if (currentCard.example) {
+            exContainer.classList.remove('hidden');
+            document.getElementById('cardExampleText').textContent = `“${currentCard.example}”`;
+          } else {
+            exContainer.classList.add('hidden');
+          }
+
+          document.getElementById('statCardInterval').textContent = `${currentCard.interval || 0}d`;
+          document.getElementById('statCardEase').textContent = (currentCard.easeFactor || 2.5).toFixed(2);
+          document.getElementById('statCardReps').textContent = currentCard.repetitions || 0;
+
+          // Interval previews for grading pills
+          const previews = previewIntervals(currentCard);
+          document.getElementById('tagAgain').textContent = previews.again;
+          document.getElementById('tagHard').textContent = previews.hard;
+          document.getElementById('tagGood').textContent = previews.good;
+          document.getElementById('tagEasy').textContent = previews.easy;
+
+          // Reset flip to front
+          state.isFlipped = false;
+          flipper.classList.remove('is-flipped');
+        }
+
+        // 3. Screen 3 Update
+        document.getElementById('s3RetentionPill').textContent = `${metrics.avgRetention}% Retention`;
+        document.getElementById('statMasteredCount').textContent = `${metrics.masteredCount} words (EF ≥ 2.5)`;
+
+        // Flip digits countdown
+        const digits = getCountdownUnits(metrics.nextReviewDate);
+        document.getElementById('digitDay0').textContent = digits.days[0];
+        document.getElementById('digitDay1').textContent = digits.days[1];
+        document.getElementById('digitDay2').textContent = digits.days[2];
+        document.getElementById('digitHour0').textContent = digits.hours[0];
+        document.getElementById('digitHour1').textContent = digits.hours[1];
+
+        // Progress bars
+        document.getElementById('metaMatureTier').textContent = `${metrics.mature.count} words | ${metrics.mature.retention}% retention`;
+        document.getElementById('barMatureTier').style.width = `${metrics.mature.retention}%`;
+
+        document.getElementById('metaYoungTier').textContent = `${metrics.young.count} words | ${metrics.young.retention}% retention`;
+        document.getElementById('barYoungTier').style.width = `${metrics.young.retention}%`;
+
+        document.getElementById('metaLearningTier').textContent = `${metrics.learning.count} words | ${metrics.learning.retention}% retention`;
+        document.getElementById('barLearningTier').style.width = `${metrics.learning.retention}%`;
+
+        // Render Chart.js
+        renderEbbinghausChart();
+      }
+
+      // Undo History State Buffer
+      let lastGradedState = null;
+
+      function updateUndoButtonUI() {
+        const undoBtn = document.getElementById('s2UndoBtn');
+        if (!undoBtn) return;
+        if (lastGradedState) {
+          undoBtn.removeAttribute('disabled');
+          undoBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+          undoBtn.classList.add('opacity-100', 'text-[#5B42F3]', 'hover:scale-110');
+        } else {
+          undoBtn.setAttribute('disabled', 'true');
+          undoBtn.classList.add('opacity-40', 'cursor-not-allowed');
+          undoBtn.classList.remove('opacity-100', 'text-[#5B42F3]', 'hover:scale-110');
+        }
+      }
+
+      function undoLastGrade() {
+        if (!lastGradedState) return;
+        saveStoredCards(lastGradedState.previousDeck);
+        state.filter = lastGradedState.previousFilter;
+        state.currentIndex = lastGradedState.previousIndex;
+        const restoredWord = lastGradedState.cardFront;
+        lastGradedState = null;
+        updateUndoButtonUI();
+        refreshUI();
+        showToast(`↩ Undid review for "${restoredWord}"`);
+      }
+
+      // Custom Confirmation Modal Helper
+      let pendingConfirmCallback = null;
+      function showConfirmDialog(title, message, onConfirm) {
+        document.getElementById('confirmDialogTitle').textContent = title;
+        document.getElementById('confirmDialogMessage').textContent = message;
+        pendingConfirmCallback = onConfirm;
+        document.getElementById('modalConfirmAction').classList.remove('hidden');
+      }
+
+      function gradeCurrentCard(grade) {
+        const card = state.queue[state.currentIndex];
+        if (!card) return;
+
+        // Record snapshot before applying grade
+        const allBefore = getStoredCards();
+        lastGradedState = {
+          cardId: card.id,
+          cardFront: card.front,
+          previousDeck: JSON.parse(JSON.stringify(allBefore)),
+          previousIndex: state.currentIndex,
+          previousFilter: state.filter
+        };
+        updateUndoButtonUI();
+
+        const updated = calculateSM2(card, grade);
+        const all = getStoredCards();
+        const idx = all.findIndex(c => c.id === card.id);
+        if (idx !== -1) {
+          all[idx] = updated;
+          saveStoredCards(all);
+        }
+
+        const labels = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
+        showToast(`Graded ${labels[grade]} • Next in ${updated.interval}d`);
+
+        const flipper = document.getElementById('flashcardBoxFlipper');
+        flipper.style.opacity = '0';
+        flipper.style.transform = 'scale(0.95)';
+
+        setTimeout(() => {
+          refreshUI();
+          flipper.style.opacity = '1';
+          flipper.style.transform = '';
+        }, 180);
+      }
+
+      function toggleCardFlip() {
+        state.isFlipped = !state.isFlipped;
+        const flipper = document.getElementById('flashcardBoxFlipper');
+        if (state.isFlipped) {
+          flipper.classList.add('is-flipped');
+        } else {
+          flipper.classList.remove('is-flipped');
+        }
+      }
+
+      function speakCurrentWord() {
+        const card = state.queue[state.currentIndex];
+        if (!card || !('speechSynthesis' in window)) return;
+        const u = new SpeechSynthesisUtterance(card.front);
+        u.lang = 'en-US';
+        u.rate = 0.9;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+      }
+
+      // =====================================================================
+      // 6. SHEETJS (XLSX) EXPORT & IMPORT ENGINE
+      // =====================================================================
+      function exportToExcel() {
+        const cards = getStoredCards();
+        const exportData = cards.map(c => ({
+          'Front (Word)': c.front,
+          'Back (Definition)': c.back,
+          'Phonetic': c.phonetic || '',
+          'Part of Speech': c.partOfSpeech || '',
+          'Example Sentence': c.example || '',
+          'Deck': c.deck || 'General',
+          'Repetitions': c.repetitions || 0,
+          'Interval (Days)': c.interval || 0,
+          'Ease Factor': c.easeFactor || 2.5,
+          'Due Date': c.dueDate || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Flashcards');
+        XLSX.writeFile(wb, 'Anki_Memory_Cast_Deck.xlsx');
+        showToast('Exported deck to Excel (.xlsx)!');
+      }
+
+      function exportToCSV() {
+        const cards = getStoredCards();
+        const exportData = cards.map(c => ({
+          'Front': c.front,
+          'Back': c.back,
+          'Phonetic': c.phonetic || '',
+          'Example': c.example || ''
+        }));
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'Anki_Flashcards.csv';
+        link.click();
+        showToast('Exported deck to CSV!');
+      }
+
+      function exportToJSON() {
+        const cards = getStoredCards();
+        const blob = new Blob([JSON.stringify(cards, null, 2)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'Anki_Backup.json';
+        link.click();
+        showToast('Exported full JSON backup!');
+      }
+
+      function downloadSampleTemplate() {
+        const sample = [
+          { 'Front': 'state-of-the-art', 'Back': 'Incorporating the newest ideas and most up-to-date features; cutting-edge.' },
+          { 'Front': 'ubiquitous', 'Back': 'Present, appearing, or found everywhere simultaneously.' },
+          { 'Front': 'mother-in-law', 'Back': 'The mother of one\'s spouse.' }
+        ];
+        const ws = XLSX.utils.json_to_sheet(sample);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Sample_Template');
+        XLSX.writeFile(wb, 'Anki_2Column_Template.xlsx');
+        showToast('Downloaded sample Excel template!');
+      }
+
+      function handleExcelFileImport(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (evt) {
+          try {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+            if (!jsonData || jsonData.length === 0) {
+              alert('Excel file appears to be empty.');
+              return;
+            }
+
+            const newCards = [];
+            let startRow = 0;
+
+            // Check if row 0 is header
+            const headerRow = jsonData[0].map(h => String(h).toLowerCase());
+            let frontIdx = 0;
+            let backIdx = 1;
+
+            if (headerRow.length >= 2) {
+              headerRow.forEach((h, i) => {
+                if (h.includes('front') || h.includes('word') || h.includes('term') || h.includes('từ')) frontIdx = i;
+                if (h.includes('back') || h.includes('def') || h.includes('meaning') || h.includes('nghĩa')) backIdx = i;
+              });
+              startRow = 1;
+            }
+
+            for (let r = startRow; r < jsonData.length; r++) {
+              const row = jsonData[r];
+              if (!row || row.length === 0) continue;
+              const front = row[frontIdx] ? String(row[frontIdx]).trim() : '';
+              const back = row[backIdx] ? String(row[backIdx]).trim() : '';
+
+              if (front) {
+                newCards.push({
+                  id: 'card_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                  front,
+                  back: back || 'Definition pending',
+                  phonetic: '',
+                  partOfSpeech: 'word',
+                  example: '',
+                  deck: 'Imported Excel',
+                  repetitions: 0,
+                  interval: 0,
+                  easeFactor: 2.5,
+                  dueDate: null,
+                  lastReviewed: null
+                });
+              }
+            }
+
+            if (newCards.length > 0) {
+              const existing = getStoredCards();
+              saveStoredCards([...newCards, ...existing]);
+              document.getElementById('modalExcelHub').classList.add('hidden');
+              refreshUI();
+              showToast(`Imported ${newCards.length} cards from Excel!`);
+            } else {
+              alert('No valid flashcard rows found in Excel.');
+            }
+          } catch (err) {
+            console.error('Failed to parse Excel:', err);
+            alert('Error reading Excel file. Please ensure it is a valid .xlsx or .csv.');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+        e.target.value = '';
+      }
+
+      // =====================================================================
+      // 7. SETUP EVENT LISTENERS & INITIALIZATION
+      // =====================================================================
+      function setupListeners() {
+        // Desktop View Controller Tabs
+        const viewBtns = document.querySelectorAll('.view-tab-btn');
+        viewBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            viewBtns.forEach(b => {
+              b.classList.remove('active', 'bg-white', 'text-[#4F46E5]', 'text-[#5B42F3]', 'shadow-sm', 'shadow-2xs');
+              b.classList.add('text-slate-600');
+            });
+            btn.classList.add('active', 'bg-white', 'text-[#4F46E5]', 'shadow-2xs');
+            btn.classList.remove('text-slate-600', 'text-slate-500');
+
+            const view = btn.dataset.view;
+            const showcase = document.getElementById('showcaseContainer');
+            showcase.className = 'showcase-grid w-full flex flex-col gap-6 lg:gap-8';
+            if (view !== 'panorama') {
+              showcase.classList.add(`focus-${view}`);
+              if (typeof syncMobileNav === 'function') syncMobileNav(view);
+            } else {
+              if (typeof syncMobileNav === 'function') syncMobileNav('screen-2');
+            }
+          });
+        });
+
+        // Top Header Shortcuts
+        document.getElementById('btnOpenGuideTop').addEventListener('click', () => {
+          document.getElementById('modalGuide').classList.remove('hidden');
+        });
+        document.getElementById('btnScreen1Guide').addEventListener('click', () => {
+          document.getElementById('modalGuide').classList.remove('hidden');
+        });
+        document.getElementById('btnCloseGuideModal').addEventListener('click', () => {
+          document.getElementById('modalGuide').classList.add('hidden');
+        });
+        document.getElementById('btnDismissGuideModal').addEventListener('click', () => {
+          document.getElementById('modalGuide').classList.add('hidden');
+        });
+
+        document.getElementById('btnOpenExcelHubTop').addEventListener('click', () => {
+          document.getElementById('modalExcelHub').classList.remove('hidden');
+        });
+        document.getElementById('actionCardExcelHub').addEventListener('click', () => {
+          document.getElementById('modalExcelHub').classList.remove('hidden');
+        });
+        document.getElementById('btnCloseExcelHubModal').addEventListener('click', () => {
+          document.getElementById('modalExcelHub').classList.add('hidden');
+        });
+        document.getElementById('btnDoneExcelHub').addEventListener('click', () => {
+          document.getElementById('modalExcelHub').classList.add('hidden');
+        });
+
+        // Screen 1 Action Handlers
+        document.getElementById('s1StartDueBtn').addEventListener('click', () => {
+          state.filter = 'due';
+          state.currentIndex = 0;
+          document.getElementById('viewBtnS2').click();
+          refreshUI();
+        });
+        document.getElementById('actionCardDue').addEventListener('click', () => {
+          state.filter = 'due';
+          state.currentIndex = 0;
+          document.getElementById('viewBtnS2').click();
+          refreshUI();
+        });
+        document.getElementById('s1AnalyticsJump').addEventListener('click', () => {
+          document.getElementById('viewBtnS3').click();
+        });
+
+        // Screen 2 Navigation & Search
+        
+        // Prev / Next Card Navigation Buttons
+        document.getElementById('s2PrevCardBtn').addEventListener('click', () => {
+          if (state.queue.length === 0) return;
+          if (state.currentIndex > 0) {
+            state.currentIndex--;
+          } else {
+            state.currentIndex = state.queue.length - 1; // Wrap around
+          }
+          refreshUI();
+        });
+
+        document.getElementById('s2NextCardBtn').addEventListener('click', () => {
+          if (state.queue.length === 0) return;
+          if (state.currentIndex < state.queue.length - 1) {
+            state.currentIndex++;
+          } else {
+            state.currentIndex = 0; // Wrap around
+          }
+          refreshUI();
+        });
+
+        // Dynamic Empty State Button Click Handler
+        document.getElementById('btnSwitchToAllCards').addEventListener('click', (e) => {
+          const action = e.currentTarget.dataset.action;
+          if (action === 'clear-search') {
+            document.getElementById('s2ClearSearchBtn').click();
+          } else if (action === 'add-card') {
+            document.getElementById('btnOpenAddCardsModal').click();
+          } else if (action === 'restart') {
+            state.currentIndex = 0;
+            refreshUI();
+          } else {
+            state.filter = 'all';
+            state.currentIndex = 0;
+            refreshUI();
+          }
+        });
+
+        // Screen 2 Search Toggle & Undo
+        const searchContainer = document.getElementById('s2SearchContainer');
+        document.getElementById('s2ToggleSearchBtn').addEventListener('click', () => {
+          searchContainer.classList.toggle('hidden');
+          if (!searchContainer.classList.contains('hidden')) {
+            document.getElementById('s2SearchInput').focus();
+          }
+        });
+
+        document.getElementById('s2UndoBtn').addEventListener('click', undoLastGrade);
+
+        // Add Cards Dedicated Modal Listeners
+        const modalAddCards = document.getElementById('modalAddCards');
+        document.getElementById('btnOpenAddCardsModal').addEventListener('click', () => {
+          modalAddCards.classList.remove('hidden');
+          document.getElementById('singleAddFront').focus();
+        });
+        document.getElementById('btnCloseAddCardsModal').addEventListener('click', () => {
+          modalAddCards.classList.add('hidden');
+        });
+
+        // Confirmation Modal Listeners
+        document.getElementById('btnCancelConfirmAction').addEventListener('click', () => {
+          document.getElementById('modalConfirmAction').classList.add('hidden');
+          pendingConfirmCallback = null;
+        });
+        document.getElementById('btnProceedConfirmAction').addEventListener('click', () => {
+          document.getElementById('modalConfirmAction').classList.add('hidden');
+          if (pendingConfirmCallback) {
+            pendingConfirmCallback();
+            pendingConfirmCallback = null;
+          }
+        });
+
+        // Action cards keyboard accessibility (Enter/Space)
+        ['actionCardDue', 'actionCardExcelHub', 's1AnalyticsJump', 'categoryDueTile', 'categoryTotalTile'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                el.click();
+              }
+            });
+          }
+        });
+
+        // Flashcard keyboard accessibility
+        document.getElementById('flashcardBoxFlipper').addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleCardFlip();
+          }
+        });
+
+        
+        // Mobile Bottom Navigation Bar Controller
+        const mobileNavBtns = document.querySelectorAll('.mobile-nav-btn');
+        function syncMobileNav(targetScreen) {
+          mobileNavBtns.forEach(btn => {
+            const isTarget = btn.dataset.target === targetScreen;
+            btn.classList.toggle('active', isTarget);
+            btn.classList.toggle('text-[#4F46E5]', isTarget);
+            btn.classList.toggle('font-bold', isTarget);
+            btn.classList.toggle('text-slate-500', !isTarget);
+          });
+        }
+
+        mobileNavBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            const target = btn.dataset.target;
+            syncMobileNav(target);
+
+            // Also click desktop tab if available
+            const desktopBtn = document.querySelector(`.view-tab-btn[data-view="${target}"]`);
+            if (desktopBtn) {
+              desktopBtn.click();
+            } else {
+              const showcase = document.getElementById('showcaseContainer');
+              showcase.className = 'showcase-grid w-full flex flex-col gap-6 lg:gap-8';
+              showcase.classList.add(`focus-${target}`);
+            }
+          });
+        });
+
+        document.getElementById('s2BackBtn').addEventListener('click', () => {
+          document.getElementById('viewBtnS1').click();
+        });
+
+        const searchInput = document.getElementById('s2SearchInput');
+        const clearSearchBtn = document.getElementById('s2ClearSearchBtn');
+        searchInput.addEventListener('input', (e) => {
+          state.searchQuery = e.target.value;
+          state.currentIndex = 0;
+          clearSearchBtn.classList.toggle('hidden', !state.searchQuery);
+          refreshUI();
+        });
+        clearSearchBtn.addEventListener('click', () => {
+          searchInput.value = '';
+          state.searchQuery = '';
+          clearSearchBtn.classList.add('hidden');
+          refreshUI();
+        });
+
+        // Screen 2 Dual Mode Accordion & Tabs
+        const tabSingle = document.getElementById('tabSingleAddBtn');
+        const tabBulk = document.getElementById('tabBulkAddBtn');
+        const panelSingle = document.getElementById('panelSingleAdd');
+        const panelBulk = document.getElementById('panelBulkAdd');
+
+        tabSingle.addEventListener('click', () => {
+          tabSingle.classList.add('bg-white', 'text-[#4F46E5]', 'shadow-sm');
+          tabSingle.classList.remove('text-slate-500');
+          tabBulk.classList.remove('bg-white', 'text-[#4F46E5]', 'shadow-sm');
+          tabBulk.classList.add('text-slate-500');
+          panelSingle.classList.remove('hidden');
+          panelBulk.classList.add('hidden');
+        });
+
+        tabBulk.addEventListener('click', () => {
+          tabBulk.classList.add('bg-white', 'text-[#4F46E5]', 'shadow-sm');
+          tabBulk.classList.remove('text-slate-500');
+          tabSingle.classList.remove('bg-white', 'text-[#4F46E5]', 'shadow-sm');
+          tabSingle.classList.add('text-slate-500');
+          panelBulk.classList.remove('hidden');
+          panelSingle.classList.add('hidden');
+        });
+
+        // Single Add Card Handler
+        
+        // Ctrl+Enter shortcut in Add form
+        document.getElementById('bulkAddTextarea').addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('btnExecuteBulkAdd').click();
+          }
+        });
+        ['singleAddFront', 'singleAddBack', 'singleAddExample'].forEach(id => {
+          document.getElementById(id).addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+              e.preventDefault();
+              document.getElementById('btnSaveSingleCard').click();
+            }
+          });
+        });
+
+        document.getElementById('btnSaveSingleCard').addEventListener('click', () => {
+          const frontInput = document.getElementById('singleAddFront');
+          const backInput = document.getElementById('singleAddBack');
+          const phoneticInput = document.getElementById('singleAddPhonetic');
+          const exampleInput = document.getElementById('singleAddExample');
+
+          const front = frontInput.value.trim();
+          const back = backInput.value.trim();
+          if (!front || !back) {
+            alert('Please enter both Front and Back content.');
+            return;
+          }
+
+          const newCard = {
+            id: 'card_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            front,
+            back,
+            phonetic: phoneticInput.value.trim(),
+            partOfSpeech: 'word',
+            example: exampleInput.value.trim(),
+            deck: 'Core Oxford 3000',
+            repetitions: 0,
+            interval: 0,
+            easeFactor: 2.5,
+            dueDate: null,
+            lastReviewed: null
+          };
+
+          const existing = getStoredCards();
+          saveStoredCards([newCard, ...existing]);
+
+          frontInput.value = '';
+          backInput.value = '';
+          phoneticInput.value = '';
+          exampleInput.value = '';
+
+          showToast(`Added "${front}" to deck!`);
+          refreshUI();
+        });
+
+        // Bulk Add Live Parser Preview & Execution
+        const bulkTextarea = document.getElementById('bulkAddTextarea');
+        const bulkCountBadge = document.getElementById('bulkParseCountBadge');
+
+        bulkTextarea.addEventListener('input', () => {
+          const parsed = parseBulkCardsText(bulkTextarea.value);
+          bulkCountBadge.textContent = `${parsed.length} cards detected`;
+        });
+
+        document.getElementById('btnBulkLoadExcelSample').addEventListener('click', () => {
+          bulkTextarea.value = "state-of-the-art\tcutting-edge; most advanced (Tab separated)\nubiquitous\tpresent everywhere simultaneously\nserendipity\thappy unexpected coincidence";
+          const parsed = parseBulkCardsText(bulkTextarea.value);
+          bulkCountBadge.textContent = `${parsed.length} cards detected`;
+        });
+
+        document.getElementById('btnBulkLoadHyphenSample').addEventListener('click', () => {
+          bulkTextarea.value = "state-of-the-art - hiện đại nhất (hyphen preserved)\nmother-in-law - mẹ chồng\nmatter-of-fact - thực tế, không cường điệu\nuser-friendly - dễ sử dụng cho người dùng";
+          const parsed = parseBulkCardsText(bulkTextarea.value);
+          bulkCountBadge.textContent = `${parsed.length} cards detected`;
+        });
+
+        document.getElementById('btnExecuteBulkAdd').addEventListener('click', () => {
+          const parsed = parseBulkCardsText(bulkTextarea.value);
+          if (parsed.length === 0) {
+            alert('No valid flashcards found. Please paste 1 card per line.');
+            return;
+          }
+
+          const existing = getStoredCards();
+          saveStoredCards([...parsed, ...existing]);
+          bulkTextarea.value = '';
+          bulkCountBadge.textContent = '0 cards detected';
+
+          showToast(`Successfully added ${parsed.length} cards via Bulk Add!`);
+          refreshUI();
+        });
+
+        // Category Filter Tiles
+        document.getElementById('categoryDueTile').addEventListener('click', () => {
+          state.filter = 'due';
+          state.currentIndex = 0;
+          refreshUI();
+        });
+        document.getElementById('categoryTotalTile').addEventListener('click', () => {
+          state.filter = 'all';
+          state.currentIndex = 0;
+          refreshUI();
+        });
+// btnSwitchToAllCards handled dynamically above
+
+        // Flashcard Flip & Speech
+        document.getElementById('flashcardBoxFlipper').addEventListener('click', toggleCardFlip);
+        document.getElementById('btnSpeakWord').addEventListener('click', speakCurrentWord);
+
+        // Edit Flashcard In-Place
+        function openEditModal(card) {
+          if (!card) return;
+          document.getElementById('editCardId').value = card.id;
+          document.getElementById('editCardFront').value = card.front;
+          document.getElementById('editCardBack').value = card.back;
+          document.getElementById('editCardPhonetic').value = card.phonetic || '';
+          document.getElementById('editCardPos').value = card.partOfSpeech || 'adjective';
+          document.getElementById('editCardExample').value = card.example || '';
+          document.getElementById('modalEditCard').classList.remove('hidden');
+        }
+
+        document.getElementById('btnEditCard').addEventListener('click', () => {
+          openEditModal(state.queue[state.currentIndex]);
+        });
+        document.getElementById('btnEditCardBack').addEventListener('click', () => {
+          openEditModal(state.queue[state.currentIndex]);
+        });
+        document.getElementById('btnCloseEditModal').addEventListener('click', () => {
+          document.getElementById('modalEditCard').classList.add('hidden');
+        });
+        document.getElementById('btnCancelEditModal').addEventListener('click', () => {
+          document.getElementById('modalEditCard').classList.add('hidden');
+        });
+
+        document.getElementById('formEditCard').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const cardId = document.getElementById('editCardId').value;
+          const front = document.getElementById('editCardFront').value.trim();
+          const back = document.getElementById('editCardBack').value.trim();
+          const phonetic = document.getElementById('editCardPhonetic').value.trim();
+          const partOfSpeech = document.getElementById('editCardPos').value;
+          const example = document.getElementById('editCardExample').value.trim();
+
+          const all = getStoredCards();
+          const idx = all.findIndex(c => c.id === cardId);
+          if (idx !== -1) {
+            all[idx] = { ...all[idx], front, back, phonetic, partOfSpeech, example };
+            saveStoredCards(all);
+            document.getElementById('modalEditCard').classList.add('hidden');
+            showToast(`Updated "${front}"!`);
+            refreshUI();
+          }
+        });
+
+        // Delete Flashcard In-Place (Front & Back Face)
+        function deleteCurrentActiveCard() {
+          const card = state.queue[state.currentIndex];
+          if (!card) return;
+          showConfirmDialog(
+            "Xác nhận xóa thẻ",
+            `Bạn có chắc chắn muốn xóa từ "${card.front}" khỏi kho từ vựng? Thao tác này sẽ xóa vĩnh viễn thẻ này.`,
+            () => {
+              const all = getStoredCards();
+              const filtered = all.filter(c => c.id !== card.id);
+              saveStoredCards(filtered);
+              showToast(`Đã xóa từ "${card.front}" thành công!`);
+              refreshUI();
+            }
+          );
+        }
+
+        document.getElementById('btnDeleteCard').addEventListener('click', deleteCurrentActiveCard);
+        document.getElementById('btnDeleteCardBack').addEventListener('click', deleteCurrentActiveCard);
+
+        // Deck Export JSON (Direct One-Click Download)
+        function exportDeckToJSON() {
+          const cards = getStoredCards();
+          const jsonStr = JSON.stringify(cards, null, 2);
+          const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = 'vocab-backup.json';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          showToast(`Đã xuất ${cards.length} thẻ ra file vocab-backup.json!`);
+        }
+        document.getElementById('btnDeckExportJSON').addEventListener('click', exportDeckToJSON);
+
+        // Deck Import JSON Modal Controller
+        const modalImportJSON = document.getElementById('modalImportJSON');
+        const inputJSONFile = document.getElementById('inputJSONFile');
+        const jsonFileNameDisplay = document.getElementById('jsonFileNameDisplay');
+        const jsonFileStatusBadge = document.getElementById('jsonFileStatusBadge');
+        const btnConfirmImportJSON = document.getElementById('btnConfirmImportJSON');
+        let importedCardsBuffer = null;
+
+        document.getElementById('btnDeckImportJSON').addEventListener('click', () => {
+          inputJSONFile.value = '';
+          importedCardsBuffer = null;
+          jsonFileNameDisplay.textContent = 'Nhấp để chọn file JSON';
+          jsonFileStatusBadge.classList.add('hidden');
+          btnConfirmImportJSON.setAttribute('disabled', 'true');
+          btnConfirmImportJSON.classList.add('opacity-50', 'cursor-not-allowed');
+          document.querySelector('input[name="jsonImportMode"][value="merge"]').checked = true;
+          modalImportJSON.classList.remove('hidden');
+        });
+
+        document.getElementById('btnCloseImportJSONModal').addEventListener('click', () => {
+          modalImportJSON.classList.add('hidden');
+        });
+        document.getElementById('btnCancelImportJSONModal').addEventListener('click', () => {
+          modalImportJSON.classList.add('hidden');
+        });
+
+        inputJSONFile.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          jsonFileNameDisplay.textContent = file.name;
+          const reader = new FileReader();
+          reader.onload = function(evt) {
+            try {
+              const parsed = JSON.parse(evt.target.result);
+              if (!Array.isArray(parsed) || parsed.length === 0) {
+                alert('File JSON không chứa danh sách thẻ từ vựng hợp lệ.');
+                importedCardsBuffer = null;
+                btnConfirmImportJSON.setAttribute('disabled', 'true');
+                btnConfirmImportJSON.classList.add('opacity-50', 'cursor-not-allowed');
+                jsonFileStatusBadge.classList.add('hidden');
+                return;
+              }
+
+              // Validate cards have at least front property
+              const validCards = parsed.filter(c => c && typeof c === 'object' && c.front);
+              if (validCards.length === 0) {
+                alert('Không tìm thấy từ vựng hợp lệ trong file JSON (yêu cầu trường "front").');
+                importedCardsBuffer = null;
+                btnConfirmImportJSON.setAttribute('disabled', 'true');
+                btnConfirmImportJSON.classList.add('opacity-50', 'cursor-not-allowed');
+                jsonFileStatusBadge.classList.add('hidden');
+                return;
+              }
+
+              importedCardsBuffer = validCards;
+              jsonFileStatusBadge.textContent = `✓ Đã phát hiện ${validCards.length} thẻ từ vựng hợp lệ trong file.`;
+              jsonFileStatusBadge.classList.remove('hidden');
+              btnConfirmImportJSON.removeAttribute('disabled');
+              btnConfirmImportJSON.classList.remove('opacity-50', 'cursor-not-allowed');
+            } catch (err) {
+              console.error('Lỗi đọc file JSON:', err);
+              alert('Không thể đọc file JSON. Vui lòng kiểm tra định dạng file.');
+              importedCardsBuffer = null;
+              btnConfirmImportJSON.setAttribute('disabled', 'true');
+              btnConfirmImportJSON.classList.add('opacity-50', 'cursor-not-allowed');
+              jsonFileStatusBadge.classList.add('hidden');
+            }
+          };
+          reader.readAsText(file);
+        });
+
+        btnConfirmImportJSON.addEventListener('click', () => {
+          if (!importedCardsBuffer || importedCardsBuffer.length === 0) return;
+
+          const selectedMode = document.querySelector('input[name="jsonImportMode"]:checked')?.value || 'merge';
+          const existing = getStoredCards();
+
+          if (selectedMode === 'overwrite') {
+            showConfirmDialog(
+              "Xác nhận ghi đè toàn bộ kho từ",
+              `CẢNH BÁO: Kho từ hiện tại (${existing.length} từ) sẽ bị thay thế bằng ${importedCardsBuffer.length} từ từ file. Tiếp tục?`,
+              () => {
+                saveStoredCards(importedCardsBuffer);
+                modalImportJSON.classList.add('hidden');
+                state.currentIndex = 0;
+                refreshUI();
+                showToast(`Đã ghi đè thành công ${importedCardsBuffer.length} từ vựng!`);
+              }
+            );
+          } else {
+            // Mode: Merge (Skip duplicates by front lowercase)
+            const existingKeys = new Set(existing.map(c => (c.front || '').trim().toLowerCase()));
+            const toAdd = importedCardsBuffer.filter(c => !existingKeys.has((c.front || '').trim().toLowerCase()));
+            const duplicateCount = importedCardsBuffer.length - toAdd.length;
+
+            if (toAdd.length === 0) {
+              modalImportJSON.classList.add('hidden');
+              showToast(`Không có từ mới: Toàn bộ ${importedCardsBuffer.length} từ đều đã tồn tại trong kho!`);
+              return;
+            }
+
+            // Assign unique ID if needed
+            toAdd.forEach(c => {
+              if (!c.id) c.id = 'card_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+            });
+
+            saveStoredCards([...existing, ...toAdd]);
+            modalImportJSON.classList.add('hidden');
+            state.currentIndex = 0;
+            refreshUI();
+            showToast(`Đã gộp thêm ${toAdd.length} từ vựng mới (${duplicateCount} từ trùng đã bỏ qua)!`);
+          }
+        });
+
+        // Clear All Cards Controller
+        document.getElementById('btnClearAllCards').addEventListener('click', () => {
+          const all = getStoredCards();
+          if (all.length === 0) {
+            showToast('Kho từ hiện tại đang trống.');
+            return;
+          }
+          showConfirmDialog(
+            "Xác nhận xóa toàn bộ kho từ",
+            `CẢNH BÁO: Bạn có chắc chắn muốn xóa TOÀN BỘ ${all.length} thẻ từ vựng? Toàn bộ dữ liệu sẽ bị xóa sạch để làm mới.`,
+            () => {
+              saveStoredCards([]);
+              state.currentIndex = 0;
+              refreshUI();
+              showToast('Đã xóa toàn bộ kho từ vựng!');
+            }
+          );
+        });
+
+        // Bulk Delete Cards Modal Controller
+        const modalBulkDeleteCards = document.getElementById('modalBulkDeleteCards');
+        const bulkDeleteSearchInput = document.getElementById('bulkDeleteSearchInput');
+        const bulkCardsListContainer = document.getElementById('bulkCardsListContainer');
+        const bulkSelectAllCheckbox = document.getElementById('bulkSelectAllCheckbox');
+        const bulkTotalAvailableCount = document.getElementById('bulkTotalAvailableCount');
+        const bulkSelectedCountPill = document.getElementById('bulkSelectedCountPill');
+        const btnConfirmDeleteSelected = document.getElementById('btnConfirmDeleteSelected');
+        const bulkDeleteBtnText = document.getElementById('bulkDeleteBtnText');
+        const bulkSelectedIds = new Set();
+
+        function updateBulkDeleteControls(filteredCards) {
+          const selectedInFiltered = filteredCards.filter(c => bulkSelectedIds.has(c.id)).length;
+          bulkSelectAllCheckbox.checked = filteredCards.length > 0 && selectedInFiltered === filteredCards.length;
+          bulkSelectAllCheckbox.indeterminate = selectedInFiltered > 0 && selectedInFiltered < filteredCards.length;
+
+          const totalSelected = bulkSelectedIds.size;
+          bulkSelectedCountPill.textContent = `Đã chọn ${totalSelected} thẻ`;
+          bulkDeleteBtnText.textContent = totalSelected > 0 ? `Xóa ${totalSelected} thẻ đã chọn` : 'Xóa thẻ đã chọn';
+
+          if (totalSelected > 0) {
+            btnConfirmDeleteSelected.removeAttribute('disabled');
+            btnConfirmDeleteSelected.classList.remove('opacity-50', 'cursor-not-allowed');
+          } else {
+            btnConfirmDeleteSelected.setAttribute('disabled', 'true');
+            btnConfirmDeleteSelected.classList.add('opacity-50', 'cursor-not-allowed');
+          }
+        }
+
+        function renderBulkDeleteCardsList() {
+          const allCards = getStoredCards();
+          const query = (bulkDeleteSearchInput.value || '').trim().toLowerCase();
+          const filteredCards = allCards.filter(c =>
+            (c.front || '').toLowerCase().includes(query) ||
+            (c.back || '').toLowerCase().includes(query)
+          );
+
+          bulkTotalAvailableCount.textContent = filteredCards.length;
+
+          if (filteredCards.length === 0) {
+            bulkCardsListContainer.innerHTML = `
+              <div class="text-center py-8 text-xs text-slate-400">
+                Không tìm thấy từ vựng nào phù hợp.
+              </div>
+            `;
+            updateBulkDeleteControls(filteredCards);
+            return;
+          }
+
+          bulkCardsListContainer.innerHTML = filteredCards.map(c => {
+            const isChecked = bulkSelectedIds.has(c.id);
+            const rowClass = isChecked 
+              ? 'border-indigo-300 bg-indigo-50/50' 
+              : 'border-slate-200/80 bg-white hover:bg-slate-50/70';
+            return `
+              <label class="flex items-center gap-3 p-2.5 rounded-xl border ${rowClass} hover:border-indigo-300 cursor-pointer transition-all select-none">
+                <input type="checkbox" data-card-id="${c.id}" class="bulk-item-cb rounded text-[#4F46E5] focus:ring-[#4F46E5] w-4 h-4 shrink-0" ${isChecked ? 'checked' : ''}>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-900 truncate font-serif">${c.front}</span>
+                    <span class="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.2 rounded-full uppercase">${c.partOfSpeech || 'word'}</span>
+                    <span class="text-[10px] text-slate-400 font-mono">(${c.interval || 0}d)</span>
+                  </div>
+                  <p class="text-[11px] text-slate-500 truncate mt-0.5">${c.back || ''}</p>
+                </div>
+              </label>
+            `;
+          }).join('');
+
+          // Bind change events to row checkboxes
+          bulkCardsListContainer.querySelectorAll('.bulk-item-cb').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+              const cardId = e.target.dataset.cardId;
+              const rowLabel = e.target.closest('label');
+              if (e.target.checked) {
+                bulkSelectedIds.add(cardId);
+                if (rowLabel) {
+                  rowLabel.classList.add('border-indigo-300', 'bg-indigo-50/50');
+                  rowLabel.classList.remove('border-slate-200/80', 'bg-white');
+                }
+              } else {
+                bulkSelectedIds.delete(cardId);
+                if (rowLabel) {
+                  rowLabel.classList.remove('border-indigo-300', 'bg-indigo-50/50');
+                  rowLabel.classList.add('border-slate-200/80', 'bg-white');
+                }
+              }
+              updateBulkDeleteControls(filteredCards);
+            });
+          });
+
+          updateBulkDeleteControls(filteredCards);
+        }
+
+        document.getElementById('btnOpenBulkDeleteModal').addEventListener('click', () => {
+          bulkSelectedIds.clear();
+          bulkDeleteSearchInput.value = '';
+          renderBulkDeleteCardsList();
+          modalBulkDeleteCards.classList.remove('hidden');
+        });
+
+        document.getElementById('btnCloseBulkDeleteModal').addEventListener('click', () => {
+          modalBulkDeleteCards.classList.add('hidden');
+        });
+        document.getElementById('btnCancelBulkDeleteModal').addEventListener('click', () => {
+          modalBulkDeleteCards.classList.add('hidden');
+        });
+
+        bulkDeleteSearchInput.addEventListener('input', () => {
+          renderBulkDeleteCardsList();
+        });
+
+        bulkSelectAllCheckbox.addEventListener('change', (e) => {
+          const allCards = getStoredCards();
+          const query = (bulkDeleteSearchInput.value || '').trim().toLowerCase();
+          const filteredCards = allCards.filter(c =>
+            (c.front || '').toLowerCase().includes(query) ||
+            (c.back || '').toLowerCase().includes(query)
+          );
+
+          if (e.target.checked) {
+            filteredCards.forEach(c => bulkSelectedIds.add(c.id));
+          } else {
+            filteredCards.forEach(c => bulkSelectedIds.delete(c.id));
+          }
+          renderBulkDeleteCardsList();
+        });
+
+        btnConfirmDeleteSelected.addEventListener('click', () => {
+          if (bulkSelectedIds.size === 0) return;
+          const count = bulkSelectedIds.size;
+          showConfirmDialog(
+            "Xác nhận xóa nhiều thẻ",
+            `Bạn có chắc chắn muốn xóa ${count} thẻ đã chọn khỏi kho từ vựng? Thao tác này không thể hoàn tác.`,
+            () => {
+              const all = getStoredCards();
+              const remaining = all.filter(c => !bulkSelectedIds.has(c.id));
+              saveStoredCards(remaining);
+              bulkSelectedIds.clear();
+              modalBulkDeleteCards.classList.add('hidden');
+              state.currentIndex = 0;
+              refreshUI();
+              showToast(`Đã xóa thành công ${count} thẻ từ vựng!`);
+            }
+          );
+        });
+
+        // SM-2 Grading Buttons
+        document.getElementById('btnGradeAgain').addEventListener('click', () => gradeCurrentCard(SM2_GRADES.AGAIN));
+        document.getElementById('btnGradeHard').addEventListener('click', () => gradeCurrentCard(SM2_GRADES.HARD));
+        document.getElementById('btnGradeGood').addEventListener('click', () => gradeCurrentCard(SM2_GRADES.GOOD));
+        document.getElementById('btnGradeEasy').addEventListener('click', () => gradeCurrentCard(SM2_GRADES.EASY));
+
+        // Screen 3 Navigation
+        document.getElementById('s3BackBtn').addEventListener('click', () => {
+          document.getElementById('viewBtnS2').click();
+        });
+
+        // Excel Export & Import Buttons
+        document.getElementById('btnExportExcel').addEventListener('click', exportToExcel);
+        document.getElementById('btnExportCSV').addEventListener('click', exportToCSV);
+        document.getElementById('btnExportJSON').addEventListener('click', exportToJSON);
+        document.getElementById('btnDownloadTemplate').addEventListener('click', downloadSampleTemplate);
+        document.getElementById('excelFileInput').addEventListener('change', handleExcelFileImport);
+
+        document.getElementById('btnResetDefaultDeck').addEventListener('click', () => {
+          showConfirmDialog("Restore Default Deck", "Restore original 10 sample flashcards? Current cards will be replaced.", () => {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DECK));
+            document.getElementById('modalExcelHub').classList.add('hidden');
+            state.currentIndex = 0;
+            refreshUI();
+            showToast('Restored 10 default cards successfully!');
+          });
+        });
+
+        // Keyboard Shortcuts
+        window.addEventListener('keydown', (e) => {
+
+          const modalOpen = !document.getElementById('modalGuide').classList.contains('hidden') ||
+                            !document.getElementById('modalExcelHub').classList.contains('hidden') ||
+                            !document.getElementById('modalEditCard').classList.contains('hidden') ||
+                            !document.getElementById('modalAddCards').classList.contains('hidden') ||
+                            !document.getElementById('modalConfirmAction').classList.contains('hidden') ||
+                            !document.getElementById('modalImportJSON').classList.contains('hidden') ||
+                            !document.getElementById('modalBulkDeleteCards').classList.contains('hidden');
+
+          if (modalOpen) {
+            if (e.key === 'Escape') {
+              document.getElementById('modalGuide').classList.add('hidden');
+              document.getElementById('modalExcelHub').classList.add('hidden');
+              document.getElementById('modalEditCard').classList.add('hidden');
+              document.getElementById('modalAddCards').classList.add('hidden');
+              document.getElementById('modalConfirmAction').classList.add('hidden');
+              document.getElementById('modalImportJSON').classList.add('hidden');
+              document.getElementById('modalBulkDeleteCards').classList.add('hidden');
+            }
+            return;
+          }
+
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+          // Undo Shortcut: Ctrl+Z or standalone 'z' / 'Z'
+          if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+            e.preventDefault();
+            undoLastGrade();
+            return;
+          }
+
+          if (e.code === 'Space') {
+            e.preventDefault();
+            toggleCardFlip();
+          } else if (e.key === '1') {
+            gradeCurrentCard(SM2_GRADES.AGAIN);
+          } else if (e.key === '2') {
+            gradeCurrentCard(SM2_GRADES.HARD);
+          } else if (e.key === '3') {
+            gradeCurrentCard(SM2_GRADES.GOOD);
+          } else if (e.key === '4') {
+            gradeCurrentCard(SM2_GRADES.EASY);
+          } else if (e.key === 'z' || e.key === 'Z') {
+            undoLastGrade();
+          } else if (e.key === 'e' || e.key === 'E') {
+            e.preventDefault();
+            openEditModal(state.queue[state.currentIndex]);
+          } else if (e.key === 'r' || e.key === 'R') {
+            e.preventDefault();
+            speakCurrentWord();
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            document.getElementById('s2PrevCardBtn').click();
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            document.getElementById('s2NextCardBtn').click();
+          }
+        });
+// Real-time minute tick for countdown
+        setInterval(() => {
+          const metrics = computeDeckMetrics(getStoredCards());
+          const digits = getCountdownUnits(metrics.nextReviewDate);
+          document.getElementById('digitDay0').textContent = digits.days[0];
+          document.getElementById('digitDay1').textContent = digits.days[1];
+          document.getElementById('digitDay2').textContent = digits.days[2];
+          document.getElementById('digitHour0').textContent = digits.hours[0];
+          document.getElementById('digitHour1').textContent = digits.hours[1];
+        }, 60000);
+      }
+
+      // Initialize Application
+      function init() {
+        try { localStorage.removeItem('anki_memory_cast_tour_completed_v1'); } catch(e) {}
+        setupListeners();
+        refreshUI();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+<!-- impeccable-live-start -->
+<script src="http://localhost:8400/live.js?token=acf209e7-6a0f-4718-a006-1dcb39915ba0"></script>
+<!-- impeccable-live-end -->
+</body>
+</html>
