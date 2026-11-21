@@ -1631,6 +1631,18 @@ class UmpDrlApp {
     setTimeout(() => document.getElementById('quick-act-title')?.focus(), 50);
   }
 
+  openQuickAddModalWithPrefill({ title = '', date = '', proof = '', suggestedCritId = '' } = {}) {
+    this.openQuickAddModal();
+    const select = document.getElementById('quick-act-criterion');
+    if (select && suggestedCritId) {
+      const hasOption = Array.from(select.options).some(o => o.value === suggestedCritId);
+      if (hasOption) select.value = suggestedCritId;
+    }
+    document.getElementById('quick-act-title').value = title;
+    document.getElementById('quick-act-date').value = date || new Date().toISOString().split('T')[0];
+    document.getElementById('quick-act-proof').value = proof;
+  }
+
   closeQuickAddModal() {
     document.getElementById('quick-add-activity-modal')?.classList.add('hidden');
   }

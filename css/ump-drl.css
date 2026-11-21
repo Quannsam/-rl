@@ -180,6 +180,13 @@ body {
   scrollbar-width: none;
 }
 
+.fb-line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* ==========================================================================
    MOBILE ADAPTATION (< 768px) - TOUCH TARGETS, STACKED CARDS, IOS ZOOM FIX
    ========================================================================== */
@@ -337,7 +344,9 @@ body {
   #disciplinary-modal,
   #quick-add-activity-modal,
   #mobile-score-sticky-bar,
-  #mobile-fab-add {
+  #mobile-fab-add,
+  #fb-feed-column,
+  #fb-drawer-backdrop {
     display: none !important;
   }
 
