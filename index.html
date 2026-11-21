@@ -171,11 +171,15 @@
         <!-- Thẻ 2: Ô tìm kiếm tiêu chí + 3 nút lọc ngang -->
         <div id="filter-card" class="order-3 lg:order-none w-full bg-white rounded-xl border border-slate-200 p-3 sm:p-3.5 shadow-2xs space-y-2.5">
           <div class="relative">
-            <input type="text" id="criteria-search" placeholder="Tìm tiêu chí (hiến máu, NCKH, SHCD...)"
-              class="w-full text-xs pl-8 pr-3 py-2 sm:py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+            <input type="text" id="criteria-search" placeholder="Tìm tiêu chí (hiến máu, văn nghệ cấp khoa, NCKH...)"
+              class="w-full text-xs pl-8 pr-8 py-2 sm:py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
             <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5 text-slate-400 absolute left-2.5 top-2.5 sm:top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
+            <button type="button" id="criteria-search-clear" aria-label="Xóa từ khóa tìm kiếm"
+              class="hidden absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center font-bold text-xs">
+              ×
+            </button>
           </div>
 
           <div class="grid grid-cols-3 gap-1.5 text-xs sm:text-[11px] font-semibold">
@@ -400,12 +404,34 @@
         </div>
 
         <form id="quick-add-form" onsubmit="event.preventDefault(); window.app.submitQuickAddActivity();" class="space-y-3 text-xs">
-          <div>
-            <label for="quick-act-criterion" class="block font-semibold text-slate-700 mb-1">Chọn tiêu chí tính điểm <span class="text-red-500">*</span></label>
-            <select id="quick-act-criterion" required
-              class="w-full px-3 py-2 border border-slate-300 rounded-lg font-medium bg-white text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <div id="quick-act-combobox" class="relative">
+            <label for="quick-act-criterion-search" class="block font-semibold text-slate-700 mb-1">Chọn tiêu chí tính điểm <span class="text-red-500">*</span></label>
+            <input type="hidden" id="quick-act-criterion" value="">
+
+            <!-- Hiển thị tiêu chí đang chọn -->
+            <div id="quick-act-selected-label" class="mb-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F8FF] border border-blue-200 text-[11px] font-semibold text-[#004A99] flex items-center justify-between gap-2">
+              <span class="truncate">Chưa chọn tiêu chí</span>
+            </div>
+
+            <!-- Ô tìm kiếm Combobox -->
+            <div class="relative">
+              <input type="text" id="quick-act-criterion-search" autocomplete="off"
+                placeholder="Gõ tên mục hoặc nội dung HĐ (VD: văn nghệ cấp khoa, hiến máu, NCKH...)"
+                class="w-full pl-8 pr-8 py-2 border border-slate-300 rounded-lg bg-white text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              <button type="button" id="quick-act-criterion-clear" aria-label="Xóa tìm kiếm tiêu chí"
+                class="hidden absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center font-bold text-xs">
+                ×
+              </button>
+            </div>
+
+            <!-- Danh sách thả xuống -->
+            <div id="quick-act-criterion-list"
+              class="hidden mt-1 max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-xl shadow-lg divide-y divide-slate-100">
               <!-- Render dynamically -->
-            </select>
+            </div>
           </div>
 
           <div>

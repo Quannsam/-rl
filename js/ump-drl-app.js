@@ -199,11 +199,16 @@ class UmpDrlApp {
 
     // Tìm kiếm nhanh
     const searchInput = document.getElementById('criteria-search');
+    const searchClearBtn = document.getElementById('criteria-search-clear');
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
-        this.searchQuery = e.target.value.toLowerCase().trim();
+        this.searchQuery = e.target.value.trim();
+        if (searchClearBtn) searchClearBtn.classList.toggle('hidden', !this.searchQuery);
         this.renderMainContent();
       });
+    }
+    if (searchClearBtn) {
+      searchClearBtn.addEventListener('click', () => this.clearCriteriaSearch());
     }
 
     // 3 nút lọc ngang (Tất cả | Chưa đạt | ⭐ Dễ kiếm điểm)
@@ -222,10 +227,39 @@ class UmpDrlApp {
       });
     });
 
-    // Đóng tooltip (ⓘ) đang mở khi chạm ra ngoài trên mobile
+    // Combobox tìm kiếm tiêu chí trong Modal Thêm/Lưu HĐ
+    const comboSearch = document.getElementById('quick-act-criterion-search');
+    const comboClear = document.getElementById('quick-act-criterion-clear');
+    const comboList = document.getElementById('quick-act-criterion-list');
+    if (comboSearch) {
+      comboSearch.addEventListener('focus', () => {
+        this.renderComboboxList(comboSearch.value.trim());
+        comboList?.classList.remove('hidden');
+      });
+      comboSearch.addEventListener('input', (e) => {
+        const val = e.target.value;
+        if (comboClear) comboClear.classList.toggle('hidden', !val.trim());
+        this.renderComboboxList(val.trim());
+        comboList?.classList.remove('hidden');
+      });
+    }
+    if (comboClear) {
+      comboClear.addEventListener('click', () => {
+        if (comboSearch) comboSearch.value = '';
+        comboClear.classList.add('hidden');
+        this.renderComboboxList('');
+        comboList?.classList.remove('hidden');
+        comboSearch?.focus();
+      });
+    }
+
+    // Đóng tooltip (ⓘ) & Combobox khi chạm ra ngoài
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.info-tooltip-wrap')) {
         document.querySelectorAll('.info-tooltip-wrap.tooltip-open').forEach(el => el.classList.remove('tooltip-open'));
+      }
+      if (!e.target.closest('#quick-act-combobox')) {
+        document.getElementById('quick-act-criterion-list')?.classList.add('hidden');
       }
     });
   }
@@ -644,6 +678,174 @@ class UmpDrlApp {
     this.renderMainContent(result);
   }
 
+  // =========================================================================
+  // TÌM KIẾM TIẾNG VIỆT THÔNG MINH (FUZZY & KEYWORD RELEVANCE SCORING)
+  // =========================================================================
+
+  normalizeVietnamese(str) {
+    if (!str) return '';
+    return String(str)
+      .normalize('NFC')
+      .toLowerCase()
+      .replace(/đ/g, 'd')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  extractSearchKeywords(query) {
+    let norm = this.normalizeVietnamese(query)
+      .replace(/[^\w\s.]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!norm) return [];
+
+    const rawTokens = norm.split(' ').filter(Boolean);
+
+    // Lọc bỏ các cụm từ nối / từ nhiễu phổ biến
+    const noisePhrases = ['su kien', 'ren luyen', 'hoat dong', 'tham gia'];
+    let stripped = norm;
+    noisePhrases.forEach(phrase => {
+      stripped = stripped.replace(new RegExp(`\\b${phrase}\\b`, 'g'), ' ');
+    });
+
+    const noiseWords = new Set(['nhan', 'diem', 'muc', 'cac', 'cua', 've', 'hd']);
+    const coreTokens = stripped
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter(t => t && !noiseWords.has(t));
+
+    const finalTokens = coreTokens.length > 0 ? coreTokens : rawTokens;
+    return Array.from(new Set(finalTokens));
+  }
+
+  scoreCriterionMatch(crit, part, section, query, minRatio = 0.6) {
+    const normQuery = this.normalizeVietnamese(query);
+    if (!normQuery) return 1;
+
+    const keywords = this.extractSearchKeywords(query);
+    if (keywords.length === 0) return 1;
+
+    const codeNorm = this.normalizeVietnamese(crit.code || '');
+    const titleNorm = this.normalizeVietnamese(crit.title || '');
+    const partNorm = this.normalizeVietnamese(`${part?.title || ''} ${part?.shortTitle || ''} ${section?.title || ''}`);
+    const noteNorm = this.normalizeVietnamese(`${crit.note || ''} ${crit.proofRequirement || ''}`);
+
+    let score = 0;
+    let matchedCount = 0;
+
+    if (codeNorm && (codeNorm === normQuery || codeNorm.startsWith(normQuery))) {
+      score += 60;
+    }
+
+    keywords.forEach(kw => {
+      let matched = false;
+      if (codeNorm.includes(kw)) {
+        score += 35;
+        matched = true;
+      }
+      if (titleNorm.includes(kw)) {
+        score += 20;
+        if (new RegExp(`(^|\\s)${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(titleNorm)) {
+          score += 5;
+        }
+        matched = true;
+      }
+      if (partNorm.includes(kw)) {
+        score += 12;
+        matched = true;
+      }
+      if (noteNorm.includes(kw)) {
+        score += 6;
+        matched = true;
+      }
+      if (matched) matchedCount++;
+    });
+
+    const ratio = matchedCount / keywords.length;
+    if (ratio < minRatio || matchedCount === 0) return 0;
+
+    // Bonus nếu khớp 100% từ khóa trọng tâm hoặc khớp nguyên cụm / cặp từ liền kề trong tiêu đề
+    if (ratio === 1) score += 20;
+    if (titleNorm.includes(normQuery)) score += 30;
+    for (let i = 0; i < keywords.length - 1; i++) {
+      const bigram = `${keywords[i]} ${keywords[i + 1]}`;
+      if (titleNorm.includes(bigram)) score += 15;
+    }
+
+    return score;
+  }
+
+  highlightMatchedText(text, query) {
+    if (!text) return '';
+    const keywords = this.extractSearchKeywords(query);
+    if (keywords.length === 0) return this.escapeHtml(text);
+
+    // Tạo bản đồ ánh xạ vị trí từ chuỗi không dấu về chuỗi gốc có dấu
+    const origChars = Array.from(String(text));
+    let normStr = '';
+    const charMap = [];
+    origChars.forEach((ch, idx) => {
+      const n = this.normalizeVietnamese(ch);
+      if (n) {
+        for (let k = 0; k < n.length; k++) {
+          normStr += n[k];
+          charMap.push(idx);
+        }
+      } else if (ch === ' ') {
+        normStr += ' ';
+        charMap.push(idx);
+      }
+    });
+
+    const ranges = [];
+    keywords.forEach(kw => {
+      if (kw.length < 2) return;
+      let start = 0;
+      while ((start = normStr.indexOf(kw, start)) !== -1) {
+        const origStart = charMap[start];
+        const origEnd = charMap[start + kw.length - 1] + 1;
+        ranges.push([origStart, origEnd]);
+        start += kw.length;
+      }
+    });
+
+    if (ranges.length === 0) return this.escapeHtml(text);
+
+    // Gộp các khoảng trùng lặp
+    ranges.sort((a, b) => a[0] - b[0]);
+    const merged = [ranges[0]];
+    for (let i = 1; i < ranges.length; i++) {
+      const last = merged[merged.length - 1];
+      if (ranges[i][0] <= last[1]) {
+        last[1] = Math.max(last[1], ranges[i][1]);
+      } else {
+        merged.push(ranges[i]);
+      }
+    }
+
+    let out = '';
+    let cursor = 0;
+    merged.forEach(([s, e]) => {
+      if (s > cursor) out += this.escapeHtml(origChars.slice(cursor, s).join(''));
+      out += `<mark class="bg-amber-200/80 text-slate-900 rounded px-0.5">${this.escapeHtml(origChars.slice(s, e).join(''))}</mark>`;
+      cursor = e;
+    });
+    if (cursor < origChars.length) out += this.escapeHtml(origChars.slice(cursor).join(''));
+    return out;
+  }
+
+  clearCriteriaSearch() {
+    this.searchQuery = '';
+    const inp = document.getElementById('criteria-search');
+    const clearBtn = document.getElementById('criteria-search-clear');
+    if (inp) inp.value = '';
+    if (clearBtn) clearBtn.classList.add('hidden');
+    this.renderMainContent();
+  }
+
   // --- CỘT PHẢI: BẢNG TIÊU CHÍ RÚT GỌN 3 CỘT (+2 CỘT ĐỐI CHIẾU KHI BẬT TOGGLE) ---
   renderMainContent(result) {
     const mainCol = document.getElementById('main-content-col');
@@ -652,6 +854,70 @@ class UmpDrlApp {
     const activeSem = this.getActiveSemester();
     if (!result) result = UmpDrlEngine.calculate(activeSem);
     const evals = activeSem.evaluations || {};
+
+    // Khi có từ khóa tìm kiếm: tự động quét toàn bộ 5 Phần và sắp xếp theo độ khớp
+    if (this.searchQuery) {
+      const matches = [];
+      UMP_CRITERIA_DATA.forEach(part => {
+        part.sections.forEach(sec => {
+          sec.criteria.forEach(crit => {
+            if (this.currentFilter === 'easy' && !crit.easyPoint) return;
+            if (this.currentFilter === 'uncompleted' && this.getCriterionScore(crit, evals[crit.id] || {}) !== 0) return;
+
+            const score = this.scoreCriterionMatch(crit, part, sec, this.searchQuery);
+            if (score > 0) {
+              matches.push({ crit, part, sec, score });
+            }
+          });
+        });
+      });
+
+      matches.sort((a, b) => b.score - a.score);
+
+      if (matches.length === 0) {
+        mainCol.innerHTML = `
+          <div class="bg-white rounded-xl border border-slate-200 p-6 text-center text-xs text-slate-500 space-y-2">
+            <p>Không tìm thấy tiêu chí nào phù hợp với "<strong>${this.escapeHtml(this.searchQuery)}</strong>".</p>
+            <button type="button" onclick="window.app.clearCriteriaSearch()" class="text-[#0B5ED7] font-semibold hover:underline">
+              Xóa tìm kiếm ×
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      mainCol.innerHTML = `
+        <div class="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-visible">
+          <div class="px-3.5 py-2.5 bg-[#F4F8FF] border-b border-blue-200 flex items-center justify-between gap-2 rounded-t-xl text-xs">
+            <span class="font-bold text-[#004A99]">
+              Tìm thấy ${matches.length} tiêu chí phù hợp (trên toàn bộ 5 Phần)
+            </span>
+            <button type="button" onclick="window.app.clearCriteriaSearch()"
+              class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 font-semibold text-[11px] shrink-0">
+              Xóa tìm kiếm ×
+            </button>
+          </div>
+
+          <table class="criteria-table text-xs">
+            <thead>
+              <tr>
+                <th class="${this.showCompareCols ? 'w-[44%]' : 'w-[52%]'} text-left">Nội dung tiêu chí & Hoạt động đã lưu</th>
+                <th class="${this.showCompareCols ? 'w-[30%]' : 'w-[36%]'} text-left">Thao tác</th>
+                <th class="${this.showCompareCols ? 'w-[10%]' : 'w-[12%]'} text-center">Điểm đạt</th>
+                ${this.showCompareCols ? `
+                  <th class="w-[8%] text-center">Lớp</th>
+                  <th class="w-[8%] text-center">Khoa</th>
+                ` : ''}
+              </tr>
+            </thead>
+            <tbody>
+              ${matches.map(m => this.renderCriterionRow(m.crit, evals[m.crit.id] || {}, activeSem, m.part)).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+      return;
+    }
 
     const partsToShow = this.activeTab === 'all'
       ? UMP_CRITERIA_DATA
@@ -789,7 +1055,7 @@ class UmpDrlApp {
   }
 
   // --- RENDER 1 DÒNG TIÊU CHÍ RÚT GỌN ---
-  renderCriterionRow(crit, critEval, activeSem) {
+  renderCriterionRow(crit, critEval, activeSem, partObj = null) {
     const selfScore = this.getCriterionScore(crit, critEval);
     const isAchieved = selfScore > 0;
     const classScoreVal = critEval.classScore !== undefined ? critEval.classScore : '';
@@ -807,14 +1073,23 @@ class UmpDrlApp {
       ? `<span class="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 ml-1">${crit.ruleScore > 0 ? '+' + crit.ruleScore : crit.ruleScore}${crit.unit ? ' ' + crit.unit : 'đ'}</span>`
       : '';
 
+    const partBadge = partObj
+      ? `<span class="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-[#0B5ED7] border border-blue-200 mr-1">P${partObj.partId}</span>`
+      : '';
+
+    const titleHtml = this.searchQuery
+      ? this.highlightMatchedText(crit.title, this.searchQuery)
+      : this.escapeHtml(crit.title);
+
     return `
       <tr id="row-${crit.id}" class="criteria-row ${isAchieved ? 'criteria-row-achieved' : ''}">
         <!-- Cột 1: Nội dung tiêu chí & Hoạt động đã lưu -->
         <td>
           <div class="text-xs text-slate-800 leading-snug">
             ${crit.easyPoint ? '<span class="text-amber-500 mr-1" title="Dễ kiếm điểm">⭐</span>' : ''}
+            ${partBadge}
             <span class="font-bold text-[#004A99]">${crit.code}</span>
-            <span class="font-medium ml-1">${crit.title}</span>
+            <span class="font-medium ml-1">${titleHtml}</span>
             ${ruleBadge}
             ${tooltipText ? this.renderInfoTooltip(tooltipText) : ''}
           </div>
@@ -1602,30 +1877,132 @@ class UmpDrlApp {
     this.renderRecentActivitiesCard(this.getActiveSemester());
   }
 
+  // --- COMBOBOX TÌM KIẾM TIÊU CHÍ TRONG MODAL THÊM / LƯU HĐ ---
+  getActivityComboboxOptions() {
+    const opts = [];
+    UMP_CRITERIA_DATA.forEach(part => {
+      part.sections.forEach(sec => {
+        sec.criteria.forEach(crit => {
+          if (crit.type === 'activity_list') {
+            opts.push({
+              id: crit.id,
+              code: crit.code,
+              title: crit.title,
+              pointsPerUnit: crit.pointsPerUnit,
+              part,
+              sec,
+              crit
+            });
+          }
+        });
+      });
+      if (part.partId === 5) {
+        opts.push({
+          id: 'c_5_1_role_class_acts',
+          code: '5.1.Lớp',
+          title: 'Tham gia hoạt động của lớp (tối đa 6 điểm)',
+          pointsPerUnit: 1,
+          part,
+          sec: part.sections[0],
+          crit: { id: 'c_5_1_role_class_acts', code: '5.1.Lớp', title: 'Tham gia hoạt động của lớp (tối đa 6 điểm)' }
+        });
+      }
+    });
+    return opts;
+  }
+
+  renderComboboxList(query = '') {
+    const listEl = document.getElementById('quick-act-criterion-list');
+    if (!listEl) return;
+
+    const selectedId = document.getElementById('quick-act-criterion')?.value || '';
+    const allOpts = this.getActivityComboboxOptions();
+    const q = (query || '').trim();
+
+    let items = [];
+    if (!q) {
+      items = allOpts.map(opt => ({ opt, score: 1 }));
+    } else {
+      allOpts.forEach(opt => {
+        const score = this.scoreCriterionMatch(opt.crit, opt.part, opt.sec, q);
+        if (score > 0) items.push({ opt, score });
+      });
+      items.sort((a, b) => b.score - a.score);
+    }
+
+    if (items.length === 0) {
+      listEl.innerHTML = `<div class="p-3 text-center text-[11px] text-slate-400 italic">Không tìm thấy tiêu chí phù hợp.</div>`;
+      return;
+    }
+
+    listEl.innerHTML = items.map(({ opt }) => {
+      const isSelected = opt.id === selectedId;
+      const titleHtml = q ? this.highlightMatchedText(opt.title, q) : this.escapeHtml(opt.title);
+      return `
+        <button type="button" onclick="window.app.selectComboboxCriterion('${opt.id}')"
+          class="w-full text-left px-3 py-2 text-[11px] hover:bg-blue-50/80 transition-colors flex items-start justify-between gap-2 ${isSelected ? 'bg-[#F4F8FF]' : ''}">
+          <div class="min-w-0 leading-snug">
+            <span class="font-bold text-[#004A99] mr-1">[${this.escapeHtml(opt.code)}]</span>
+            <span class="text-slate-800 font-medium">${titleHtml}</span>
+            <div class="text-[10px] text-slate-400 mt-0.5">Phần ${opt.part.partId}: ${this.escapeHtml(opt.part.shortTitle)}</div>
+          </div>
+          <span class="shrink-0 px-1.5 py-0.5 rounded bg-blue-100 text-[#004A99] font-bold text-[10px]">+${opt.pointsPerUnit}đ/HĐ</span>
+        </button>
+      `;
+    }).join('');
+  }
+
+  selectComboboxCriterion(critId, keepListOpen = false) {
+    const opts = this.getActivityComboboxOptions();
+    const chosen = opts.find(o => o.id === critId) || opts[0];
+    if (!chosen) return;
+
+    const hiddenInp = document.getElementById('quick-act-criterion');
+    const labelEl = document.getElementById('quick-act-selected-label');
+    const listEl = document.getElementById('quick-act-criterion-list');
+
+    if (hiddenInp) hiddenInp.value = chosen.id;
+    if (labelEl) {
+      labelEl.innerHTML = `
+        <span class="truncate">Đã chọn: <strong>[${this.escapeHtml(chosen.code)}]</strong> ${this.escapeHtml(chosen.title)}</span>
+        <span class="shrink-0 px-1.5 py-0.5 rounded bg-blue-100 text-[#004A99] font-bold text-[10px]">+${chosen.pointsPerUnit}đ/HĐ</span>
+      `;
+    }
+    if (!keepListOpen && listEl) {
+      listEl.classList.add('hidden');
+    }
+  }
+
+  findBestCriterionForText(text) {
+    if (!text) return '';
+    const opts = this.getActivityComboboxOptions();
+    let bestId = '';
+    let bestScore = 0;
+    opts.forEach(opt => {
+      // Dùng minRatio = 0.15 khi tự động gợi ý từ tiêu đề bài đăng Facebook dài
+      const score = this.scoreCriterionMatch(opt.crit, opt.part, opt.sec, text, 0.15);
+      if (score > bestScore) {
+        bestScore = score;
+        bestId = opt.id;
+      }
+    });
+    return bestId;
+  }
+
   // --- MODAL THÊM NHANH HOẠT ĐỘNG TỪ SIDEBAR ---
   openQuickAddModal() {
-    const select = document.getElementById('quick-act-criterion');
-    if (select) {
-      let optionsHtml = '';
-      UMP_CRITERIA_DATA.forEach(part => {
-        const groupOpts = [];
-        part.sections.forEach(sec => {
-          sec.criteria.forEach(crit => {
-            if (crit.type === 'activity_list') {
-              const shortTitle = crit.title.length > 65 ? crit.title.substring(0, 65) + '...' : crit.title;
-              groupOpts.push(`<option value="${crit.id}">${crit.code} - ${this.escapeHtml(shortTitle)} (+${crit.pointsPerUnit}đ/HĐ)</option>`);
-            }
-          });
-        });
-        if (part.partId === 5) {
-          groupOpts.push(`<option value="c_5_1_role_class_acts">5.1.Lớp - Tham gia hoạt động của lớp (+1đ/HĐ, tối đa 6đ)</option>`);
-        }
-        if (groupOpts.length > 0) {
-          optionsHtml += `<optgroup label="Phần ${part.partId}: ${this.escapeHtml(part.shortTitle)}">${groupOpts.join('')}</optgroup>`;
-        }
-      });
-      select.innerHTML = optionsHtml;
+    const opts = this.getActivityComboboxOptions();
+    if (opts.length > 0) {
+      this.selectComboboxCriterion(opts[0].id);
     }
+
+    const comboSearch = document.getElementById('quick-act-criterion-search');
+    const comboClear = document.getElementById('quick-act-criterion-clear');
+    const comboList = document.getElementById('quick-act-criterion-list');
+    if (comboSearch) comboSearch.value = '';
+    if (comboClear) comboClear.classList.add('hidden');
+    if (comboList) comboList.classList.add('hidden');
+    this.renderComboboxList('');
 
     document.getElementById('quick-act-title').value = '';
     document.getElementById('quick-act-date').value = new Date().toISOString().split('T')[0];
@@ -1636,10 +2013,9 @@ class UmpDrlApp {
 
   openQuickAddModalWithPrefill({ title = '', date = '', proof = '', suggestedCritId = '' } = {}) {
     this.openQuickAddModal();
-    const select = document.getElementById('quick-act-criterion');
-    if (select && suggestedCritId) {
-      const hasOption = Array.from(select.options).some(o => o.value === suggestedCritId);
-      if (hasOption) select.value = suggestedCritId;
+    const smartCritId = suggestedCritId || this.findBestCriterionForText(title);
+    if (smartCritId) {
+      this.selectComboboxCriterion(smartCritId);
     }
     document.getElementById('quick-act-title').value = title;
     document.getElementById('quick-act-date').value = date || new Date().toISOString().split('T')[0];
@@ -1656,6 +2032,10 @@ class UmpDrlApp {
     const date = document.getElementById('quick-act-date').value;
     const proof = document.getElementById('quick-act-proof').value.trim();
 
+    if (!critId) {
+      alert('Vui lòng chọn tiêu chí tính điểm!');
+      return;
+    }
     if (!title) {
       alert('Vui lòng nhập Tên hoạt động / Sự kiện!');
       return;
