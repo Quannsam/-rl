@@ -1,0 +1,274 @@
+/* ==========================================================================
+   SỔ TAY THEO DÕI & TÍNH ĐIỂM RÈN LUYỆN UMP (QĐ 1714)
+   Giao diện tối giản chuẩn Y khoa - Tối ưu màn hình Laptop (max-w-1380px)
+   ========================================================================== */
+
+:root {
+  --ump-primary: #0B5ED7;
+  --ump-primary-dark: #004A99;
+  --ump-primary-light: #F4F8FF;
+  --bg-card: #FFFFFF;
+  --bg-page: #F8FAFC;
+  --border-color: #E2E8F0;
+  --text-main: #1E293B;
+  --text-muted: #64748B;
+}
+
+body {
+  font-family: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  line-height: 1.45;
+  margin: 0;
+  padding: 0;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Ranking Badges */
+.badge-xuat-sac {
+  background-color: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid #C7D2FE;
+}
+.badge-tot {
+  background-color: #EFF6FF;
+  color: #0B5ED7;
+  border: 1px solid #BFDBFE;
+}
+.badge-kha {
+  background-color: #F0FDF4;
+  color: #16A34A;
+  border: 1px solid #BBF7D0;
+}
+.badge-trung-binh {
+  background-color: #FFFBEB;
+  color: #D97706;
+  border: 1px solid #FDE68A;
+}
+.badge-yeu {
+  background-color: #FFF7ED;
+  color: #EA580C;
+  border: 1px solid #FED7AA;
+}
+.badge-kem {
+  background-color: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+
+/* Achieved Row Highlight (>0đ) */
+.criteria-row-achieved td {
+  background-color: #F4F8FF !important;
+}
+.criteria-row-achieved td:first-child {
+  box-shadow: inset 3px 0 0 #0B5ED7;
+}
+.criteria-row:hover td {
+  background-color: #F8FAFC;
+}
+.criteria-row-achieved:hover td {
+  background-color: #EBF3FE !important;
+}
+
+/* Compact Table Styling */
+.criteria-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.criteria-table th {
+  background-color: #F8FAFC;
+  color: #475569;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 9px 12px;
+  border-bottom: 1px solid #E2E8F0;
+}
+.criteria-table td {
+  padding: 10px 12px;
+  vertical-align: top;
+  border-bottom: 1px solid #F1F5F9;
+  transition: background-color 0.15s ease;
+}
+
+/* Sub-Activity Items Card */
+.sub-activity-item {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.sub-activity-item:hover {
+  border-color: #93C5FD;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+}
+
+/* Tooltip (ⓘ) for Regulation Notes */
+.info-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.info-tooltip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  color: #64748B;
+  background-color: #F1F5F9;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.info-tooltip-wrap:hover .info-tooltip-btn,
+.info-tooltip-wrap:focus-within .info-tooltip-btn {
+  color: #0B5ED7;
+  background-color: #DBEAFE;
+}
+.info-tooltip-box {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  width: 280px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background-color: #0F172A;
+  color: #F8FAFC;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+  pointer-events: none;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+.info-tooltip-wrap:hover .info-tooltip-box,
+.info-tooltip-wrap:focus-within .info-tooltip-box {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Toggle Switch */
+.toggle-checkbox:checked {
+  right: 0;
+  border-color: #0B5ED7;
+}
+.toggle-checkbox:checked + .toggle-label {
+  background-color: #0B5ED7;
+}
+
+/* Circular Progress Ring */
+.score-ring-circle {
+  transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* Pulse animation for auto-save */
+@keyframes savePulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+.saving-pulse {
+  animation: savePulse 1.2s infinite;
+}
+
+/* ==========================================================================
+   PRINT / PDF EXPORT STYLES (BM.2026/CTSV/PĐGKQRL/29.1)
+   Áp dụng chuẩn quy chế văn bản hành chính Việt Nam & QĐ 1714 ĐHYD
+   ========================================================================== */
+
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    font-family: "Times New Roman", Times, serif !important;
+    font-size: 11pt !important;
+    line-height: 1.35 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .no-print,
+  #app-header,
+  #student-bar,
+  #sidebar-col,
+  #part-tabs-bar,
+  #main-toolbar,
+  #main-content-col,
+  .toast-container,
+  #new-semester-modal,
+  #edit-student-modal,
+  #disciplinary-modal,
+  #quick-add-activity-modal {
+    display: none !important;
+  }
+
+  #official-print-sheet {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 10mm 15mm !important;
+    box-sizing: border-box !important;
+  }
+
+  .official-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 10px !important;
+    font-size: 10.5pt !important;
+  }
+
+  .official-table th,
+  .official-table td {
+    border: 1px solid #000000 !important;
+    padding: 5px 6px !important;
+    vertical-align: middle !important;
+  }
+
+  .official-table th {
+    background-color: #F5F5F5 !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  .page-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm 15mm 15mm;
+  }
+}

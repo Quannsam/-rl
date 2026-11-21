@@ -1,5 +1,5 @@
 /**
- * Lightweight Zero-Dependency Static File Server for Anki Memory Cast
+ * Lightweight Zero-Dependency Static File Server for UMP DRL Web App
  */
 
 const http = require('http');
@@ -53,5 +53,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Anki Memory Cast server running at http://localhost:${PORT}`);
+  console.log(`Sổ tay Theo dõi & Tính Điểm Rèn Luyện UMP (QĐ 1714) server running at http://localhost:${PORT}`);
 });
