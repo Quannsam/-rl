@@ -165,9 +165,121 @@ body {
   transition: opacity 0.15s ease, visibility 0.15s ease;
 }
 .info-tooltip-wrap:hover .info-tooltip-box,
-.info-tooltip-wrap:focus-within .info-tooltip-box {
+.info-tooltip-wrap:focus-within .info-tooltip-box,
+.info-tooltip-wrap.tooltip-open .info-tooltip-box {
   visibility: visible;
   opacity: 1;
+}
+
+/* Hide scrollbars for horizontal mobile pill strips */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ==========================================================================
+   MOBILE ADAPTATION (< 768px) - TOUCH TARGETS, STACKED CARDS, IOS ZOOM FIX
+   ========================================================================== */
+@media (max-width: 767px) {
+  /* Ngăn iOS Safari tự động phóng to khi chạm vào input/select */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Chuyển bảng tiêu chí thành danh sách thẻ xếp dọc (Stacked Cards) */
+  .criteria-table,
+  .criteria-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .criteria-table thead {
+    display: none;
+  }
+
+  .criteria-table tr.criteria-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 12px;
+    border-bottom: 1px solid #E2E8F0;
+    background-color: #FFFFFF;
+  }
+
+  .criteria-table tr.criteria-row-achieved {
+    background-color: #F4F8FF !important;
+    box-shadow: inset 3px 0 0 #0B5ED7;
+  }
+
+  .criteria-table tr.criteria-row td {
+    display: block;
+    width: 100% !important;
+    padding: 0 !important;
+    border-bottom: none !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    text-align: left !important;
+  }
+
+  /* Vùng điểm đạt trên mobile hiển thị dạng thanh tóm tắt gọn */
+  .criteria-table tr.criteria-row td.mobile-score-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 6px !important;
+    border-top: 1px dashed #E2E8F0 !important;
+  }
+
+  .criteria-table tr.criteria-row td.mobile-compare-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  /* Đảm bảo vùng chạm >= 44px cho các nút và điều khiển */
+  .touch-target-44 {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .criteria-table select,
+  .criteria-table input:not([type="checkbox"]):not([type="radio"]),
+  .criteria-table button:not(.info-tooltip-btn),
+  #criteria-search,
+  .filter-pill {
+    min-height: 44px;
+  }
+
+  /* Tooltip (ⓘ) mở dạng thẻ nổi cố định trên mobile để không bao giờ bị tràn màn hình */
+  .info-tooltip-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+    margin-left: 4px;
+  }
+
+  .info-tooltip-box {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 84px;
+    top: auto;
+    width: auto;
+    max-width: calc(100vw - 32px);
+    padding: 12px 14px;
+    font-size: 13px;
+    z-index: 60;
+    pointer-events: auto;
+  }
 }
 
 /* Toggle Switch */
@@ -223,7 +335,9 @@ body {
   #new-semester-modal,
   #edit-student-modal,
   #disciplinary-modal,
-  #quick-add-activity-modal {
+  #quick-add-activity-modal,
+  #mobile-score-sticky-bar,
+  #mobile-fab-add {
     display: none !important;
   }
 

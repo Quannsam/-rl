@@ -218,6 +218,13 @@ class UmpDrlApp {
         this.renderMainContent();
       });
     });
+
+    // Đóng tooltip (ⓘ) đang mở khi chạm ra ngoài trên mobile
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.info-tooltip-wrap')) {
+        document.querySelectorAll('.info-tooltip-wrap.tooltip-open').forEach(el => el.classList.remove('tooltip-open'));
+      }
+    });
   }
 
   renderSemesterSelector() {
@@ -240,6 +247,7 @@ class UmpDrlApp {
     const result = UmpDrlEngine.calculate(activeSem);
 
     this.renderStudentBar(activeSem);
+    this.renderMobileScoreBar(result);
     this.renderScoreSummaryCard(result);
     this.renderRecentActivitiesCard(activeSem);
     this.renderPartTabsBar(result);
@@ -291,6 +299,68 @@ class UmpDrlApp {
   getRankNameForScore(score) {
     const found = UMP_RANKING_LEVELS.find(r => score >= r.minScore && score <= r.maxScore);
     return found ? found.name : 'Kém';
+  }
+
+  // --- THANH ĐIỂM + MỤC TIÊU STICKY TRÊN MOBILE (< 1024px) ---
+  renderMobileScoreBar(result) {
+    const bar = document.getElementById('mobile-score-sticky-bar');
+    if (!bar) return;
+
+    const activeSem = this.getActiveSemester();
+    const targetScore = this.getTargetScore(activeSem);
+    const { grandTotal, ranking } = result;
+    const isGoalReached = grandTotal >= targetScore;
+    const diff = Math.abs(grandTotal - targetScore);
+    const diffText = diff % 1 === 0 ? diff.toFixed(0) : diff.toFixed(1);
+
+    const adjusterHtml = this.isEditingTargetScore ? `
+      <div class="mt-2 pt-2 border-t border-slate-200 space-y-2 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-700">Mục tiêu ĐRL (50–100đ)</span>
+          <button type="button" onclick="window.app.toggleTargetScoreEditor()" class="text-[#0B5ED7] font-bold px-2 py-1">Xong</button>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button type="button" onclick="window.app.setTargetScore(65)"
+            class="min-h-[40px] px-2 rounded-lg border font-semibold ${targetScore === 65 ? 'bg-[#0B5ED7] text-white border-[#0B5ED7]' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+            65đ • Khá
+          </button>
+          <button type="button" onclick="window.app.setTargetScore(80)"
+            class="min-h-[40px] px-2 rounded-lg border font-semibold ${targetScore === 80 ? 'bg-[#0B5ED7] text-white border-[#0B5ED7]' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+            80đ • Tốt
+          </button>
+          <button type="button" onclick="window.app.setTargetScore(90)"
+            class="min-h-[40px] px-2 rounded-lg border font-semibold ${targetScore === 90 ? 'bg-[#0B5ED7] text-white border-[#0B5ED7]' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+            90đ • XS
+          </button>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-slate-500">Tùy chỉnh:</span>
+          <div class="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white">
+            <button type="button" onclick="window.app.adjustTargetScore(-1)" class="min-w-[40px] min-h-[40px] bg-slate-50 font-bold text-slate-700">-</button>
+            <input type="number" min="50" max="100" value="${targetScore}" onchange="window.app.setTargetScore(this.value)"
+              class="w-14 text-center py-1 font-bold text-[#0B5ED7] focus:outline-none">
+            <button type="button" onclick="window.app.adjustTargetScore(1)" class="min-w-[40px] min-h-[40px] bg-slate-50 font-bold text-slate-700">+</button>
+          </div>
+        </div>
+      </div>
+    ` : '';
+
+    bar.innerHTML = `
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-lg font-extrabold text-slate-900 leading-none">${grandTotal % 1 === 0 ? grandTotal.toFixed(0) : grandTotal.toFixed(1)}<span class="text-xs font-semibold text-slate-400">/100</span></span>
+          <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${ranking.badgeClass} shrink-0">${ranking.name}</span>
+          <span class="text-[11px] font-medium truncate ${isGoalReached ? 'text-emerald-700' : 'text-slate-500'}">
+            ${isGoalReached ? `Đạt mục tiêu (+${diffText}đ)` : `Thiếu ${diffText}đ`}
+          </span>
+        </div>
+        <button type="button" onclick="window.app.toggleTargetScoreEditor()"
+          class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-[#F4F8FF] text-[#0B5ED7] border border-blue-200">
+          <span>🎯 ${targetScore}đ ✎</span>
+        </button>
+      </div>
+      ${adjusterHtml}
+    `;
   }
 
   // --- CỘT TRÁI - THẺ 1: VÒNG TRÒN ĐIỂM TỔNG + MỤC TIÊU TÙY CHỈNH ---
@@ -520,7 +590,7 @@ class UmpDrlApp {
 
       return `
         <button type="button" onclick="window.app.switchTab('${t.id}')"
-          class="flex flex-col justify-between p-2 rounded-lg border text-left transition-all ${isActive
+          class="shrink-0 min-w-[116px] lg:min-w-0 flex flex-col justify-between p-2 rounded-lg border text-left transition-all ${isActive
             ? 'bg-[#F4F8FF] border-[#0B5ED7] shadow-2xs'
             : 'bg-white border-transparent hover:bg-slate-50'}">
           <div class="flex items-center justify-between w-full gap-1">
@@ -643,15 +713,24 @@ class UmpDrlApp {
     mainCol.innerHTML = html;
   }
 
-  // --- TOOLTIP (ⓘ) CHỨA GHI CHÚ QUY ĐỊNH DÀI ---
+  // --- TOOLTIP (ⓘ) CHỨA GHI CHÚ QUY ĐỊNH DÀI (HỖ TRỢ TAP TRÊN MOBILE) ---
   renderInfoTooltip(text) {
     if (!text) return '';
     return `
-      <span class="info-tooltip-wrap" tabindex="0">
-        <span class="info-tooltip-btn" aria-label="Xem ghi chú quy định">i</span>
+      <span class="info-tooltip-wrap">
+        <button type="button" onclick="window.app.toggleTooltip(this, event)" class="info-tooltip-btn" aria-label="Xem ghi chú quy định">i</button>
         <span class="info-tooltip-box">${this.escapeHtml(text)}</span>
       </span>
     `;
+  }
+
+  toggleTooltip(btn, event) {
+    if (event) event.stopPropagation();
+    const wrap = btn.closest('.info-tooltip-wrap');
+    if (!wrap) return;
+    const isOpen = wrap.classList.contains('tooltip-open');
+    document.querySelectorAll('.info-tooltip-wrap.tooltip-open').forEach(el => el.classList.remove('tooltip-open'));
+    if (!isOpen) wrap.classList.add('tooltip-open');
   }
 
   // --- LỌC TIÊU CHÍ (TẤT CẢ | CHƯA ĐẠT | ⭐ DỄ KIẾM) ---
@@ -745,22 +824,25 @@ class UmpDrlApp {
         </td>
 
         <!-- Cột 3: Điểm đạt -->
-        <td class="text-center whitespace-nowrap">
+        <td class="text-center whitespace-nowrap mobile-score-cell">
+          <span class="md:hidden text-xs font-medium text-slate-500">Điểm đạt:</span>
           <span class="inline-block px-2 py-0.5 rounded font-bold text-xs ${isAchieved ? 'bg-blue-100 text-[#004A99]' : 'bg-slate-100 text-slate-400'}">
             ${isAchieved ? '+' + selfScore : selfScore}đ
           </span>
         </td>
 
         ${this.showCompareCols ? `
-          <td class="text-center">
+          <td class="text-center mobile-compare-cell">
+            <span class="md:hidden text-xs font-medium text-slate-500">Điểm Lớp:</span>
             <input type="number" step="0.5" min="0" max="25" placeholder="-" value="${classScoreVal}"
               onchange="window.app.updatePartyScore('${crit.id}', 'classScore', this.value)"
-              class="w-12 text-center text-xs py-1 border border-slate-300 rounded font-semibold focus:ring-1 focus:ring-blue-500 focus:outline-none">
+              class="w-14 md:w-12 text-center text-xs py-1 border border-slate-300 rounded font-semibold focus:ring-1 focus:ring-blue-500 focus:outline-none">
           </td>
-          <td class="text-center">
+          <td class="text-center mobile-compare-cell">
+            <span class="md:hidden text-xs font-medium text-slate-500">Điểm Khoa:</span>
             <input type="number" step="0.5" min="0" max="25" placeholder="-" value="${facultyScoreVal}"
               onchange="window.app.updatePartyScore('${crit.id}', 'facultyScore', this.value)"
-              class="w-12 text-center text-xs py-1 border border-slate-300 rounded font-semibold focus:ring-1 focus:ring-blue-500 focus:outline-none">
+              class="w-14 md:w-12 text-center text-xs py-1 border border-slate-300 rounded font-semibold focus:ring-1 focus:ring-blue-500 focus:outline-none">
           </td>
         ` : ''}
       </tr>
@@ -1489,6 +1571,7 @@ class UmpDrlApp {
   toggleTargetScoreEditor() {
     this.isEditingTargetScore = !this.isEditingTargetScore;
     const result = UmpDrlEngine.calculate(this.getActiveSemester());
+    this.renderMobileScoreBar(result);
     this.renderScoreSummaryCard(result);
   }
 
@@ -1500,6 +1583,7 @@ class UmpDrlApp {
     activeSem.targetScore = clamped;
     this.scheduleAutoSave();
     const result = UmpDrlEngine.calculate(activeSem);
+    this.renderMobileScoreBar(result);
     this.renderScoreSummaryCard(result);
   }
 
