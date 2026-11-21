@@ -7,21 +7,43 @@ const UMP_STORAGE_KEY = 'UMP_DRL_DATA_V1';
 
 class UmpDrlStorage {
   /**
-   * Khởi tạo hoặc nạp dữ liệu từ LocalStorage
+   * Khởi tạo hoặc nạp dữ liệu từ LocalStorage (kèm chuẩn hóa an toàn không làm mất dữ liệu cũ)
    */
   static loadData() {
     try {
       const raw = localStorage.getItem(UMP_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && parsed.semesters && parsed.activeSemesterId) {
-          return parsed;
+        if (parsed && parsed.semesters && typeof parsed.semesters === 'object' && Object.keys(parsed.semesters).length > 0) {
+          return this.normalizeData(parsed);
         }
       }
     } catch (e) {
       console.error('Lỗi khi nạp dữ liệu từ LocalStorage:', e);
     }
     return this.createInitialData();
+  }
+
+  /**
+   * Chuẩn hóa cấu trúc dữ liệu khi nâng cấp phiên bản mới để không bao giờ mất dữ liệu cũ
+   */
+  static normalizeData(parsed) {
+    const semKeys = Object.keys(parsed.semesters);
+    if (!parsed.activeSemesterId || !parsed.semesters[parsed.activeSemesterId]) {
+      parsed.activeSemesterId = semKeys[0];
+    }
+
+    semKeys.forEach(key => {
+      const sem = parsed.semesters[key];
+      if (!sem || typeof sem !== 'object') return;
+      if (!sem.student) sem.student = {};
+      if (!sem.evaluations) sem.evaluations = {};
+      if (!sem.disciplinary) sem.disciplinary = { reprimand: 0, warning: 0, suspended: false };
+      if (sem.targetScore === undefined || sem.targetScore === null) sem.targetScore = 80;
+    });
+
+    parsed.version = '1.1';
+    return parsed;
   }
 
   /**
@@ -215,11 +237,12 @@ class UmpDrlStorage {
   static importJson(jsonString) {
     try {
       const parsed = JSON.parse(jsonString);
-      if (!parsed || !parsed.semesters || typeof parsed.semesters !== 'object') {
+      if (!parsed || !parsed.semesters || typeof parsed.semesters !== 'object' || Object.keys(parsed.semesters).length === 0) {
         throw new Error('Cấu trúc file JSON không hợp lệ với chuẩn Sổ tay ĐRL UMP.');
       }
-      this.saveData(parsed);
-      return { success: true, data: parsed };
+      const normalized = this.normalizeData(parsed);
+      this.saveData(normalized);
+      return { success: true, data: normalized };
     } catch (err) {
       return { success: false, error: err.message };
     }

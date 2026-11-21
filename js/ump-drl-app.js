@@ -30,21 +30,16 @@ class UmpDrlApp {
   }
 
   scheduleAutoSave() {
+    // Lưu ngay lập tức vào LocalStorage để tránh mất dữ liệu nếu người dùng F5/đóng tab ngay
+    const activeSem = this.getActiveSemester();
+    activeSem.updatedAt = new Date().toISOString();
+    UmpDrlStorage.saveData(this.data);
+
     const saveIndicator = document.getElementById('save-indicator');
     if (saveIndicator) {
-      saveIndicator.innerHTML = '<span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1 saving-pulse"></span>Đang lưu...';
+      const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      saveIndicator.innerHTML = `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1"></span>Lưu ${timeStr}`;
     }
-
-    if (this.saveTimeout) clearTimeout(this.saveTimeout);
-    this.saveTimeout = setTimeout(() => {
-      const activeSem = this.getActiveSemester();
-      activeSem.updatedAt = new Date().toISOString();
-      UmpDrlStorage.saveData(this.data);
-      if (saveIndicator) {
-        const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        saveIndicator.innerHTML = `<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1"></span>Lưu ${timeStr}`;
-      }
-    }, 400);
   }
 
   bindGlobalEvents() {
