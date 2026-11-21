@@ -121,6 +121,42 @@ class UmpDrlApp {
       });
     }
 
+    // Nút Xuất CSV & Nhập CSV
+    const btnExportCsv = document.getElementById('btn-export-csv');
+    if (btnExportCsv) {
+      btnExportCsv.addEventListener('click', () => {
+        dropdownMore?.classList.add('hidden');
+        this.exportCurrentCsv();
+      });
+    }
+
+    const btnImportCsv = document.getElementById('btn-import-csv');
+    const fileImportCsv = document.getElementById('file-import-csv-input');
+    if (btnImportCsv && fileImportCsv) {
+      btnImportCsv.addEventListener('click', () => {
+        dropdownMore?.classList.add('hidden');
+        fileImportCsv.click();
+      });
+      fileImportCsv.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const res = UmpDrlStorage.importCsv(event.target.result, this.data);
+          if (res.success) {
+            this.data = res.data;
+            this.renderSemesterSelector();
+            this.render();
+            this.showToast('Đã nạp dữ liệu ĐRL từ file CSV thành công!');
+          } else {
+            alert('Lỗi nhập file CSV: ' + res.error);
+          }
+          fileImportCsv.value = '';
+        };
+        reader.readAsText(file, 'UTF-8');
+      });
+    }
+
     // Nút Nạp dữ liệu mẫu
     const btnSample = document.getElementById('btn-load-sample');
     if (btnSample) {
@@ -427,14 +463,21 @@ class UmpDrlApp {
     }
 
     card.innerHTML = `
-      <div class="flex items-center justify-between gap-2 mb-1.5">
-        <div class="flex items-center gap-1.5 min-w-0">
+      <div class="flex items-center justify-between gap-1.5 mb-1.5">
+        <div class="flex items-center gap-1 min-w-0">
           <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate">Hoạt động vừa ghi nhận</h3>
         </div>
-        <button type="button" id="btn-quick-add-activity" onclick="window.app.openQuickAddModal()"
-          class="shrink-0 px-2 py-0.5 rounded-md bg-[#0B5ED7] hover:bg-[#004A99] text-white text-[11px] font-semibold transition-colors">
-          + Thêm
-        </button>
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" onclick="window.app.exportCurrentCsv()"
+            class="px-1.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-semibold transition-colors"
+            title="Xuất nhanh file CSV (Excel)">
+            Xuất CSV
+          </button>
+          <button type="button" id="btn-quick-add-activity" onclick="window.app.openQuickAddModal()"
+            class="px-2 py-0.5 rounded-md bg-[#0B5ED7] hover:bg-[#004A99] text-white text-[11px] font-semibold transition-colors">
+            + Thêm
+          </button>
+        </div>
       </div>
       ${allActs.length > 5 ? `
         <div class="flex items-center justify-between text-[10px] text-slate-400 mb-1">
@@ -446,6 +489,13 @@ class UmpDrlApp {
       ` : ''}
       ${listHtml}
     `;
+  }
+
+  exportCurrentCsv() {
+    const activeSem = this.getActiveSemester();
+    const result = UmpDrlEngine.calculate(activeSem);
+    UmpDrlStorage.exportCsv(activeSem, result);
+    this.showToast('Đã xuất file CSV chuẩn UTF-8 cho Excel!');
   }
 
   // --- CỘT PHẢI: THANH 5 TAB NGANG + TAB TẤT CẢ ---

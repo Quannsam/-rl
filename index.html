@@ -84,10 +84,18 @@
             <span class="text-[10px]">▾</span>
           </button>
 
-          <div id="more-menu-dropdown" class="hidden absolute right-0 mt-1.5 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50 text-xs">
+          <div id="more-menu-dropdown" class="hidden absolute right-0 mt-1.5 w-64 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50 text-xs">
             <button id="btn-new-semester" type="button" class="w-full text-left px-3 py-2 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2">
               <span class="text-blue-600 font-bold">+</span> Tạo học kỳ mới
             </button>
+            <div class="border-t border-slate-100 my-1"></div>
+            <button id="btn-export-csv" type="button" class="w-full text-left px-3 py-2 hover:bg-emerald-50 text-emerald-700 font-semibold flex items-center gap-2">
+              <span>📊 Xuất file CSV (Excel / Chuyển máy)</span>
+            </button>
+            <button id="btn-import-csv" type="button" class="w-full text-left px-3 py-2 hover:bg-emerald-50 text-emerald-700 font-semibold flex items-center gap-2">
+              <span>📥 Nhập dữ liệu từ file CSV</span>
+            </button>
+            <div class="border-t border-slate-100 my-1"></div>
             <button id="btn-export-json" type="button" class="w-full text-left px-3 py-2 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2">
               <span class="text-slate-500">↓</span> Sao lưu JSON
             </button>
@@ -100,6 +108,7 @@
             </button>
           </div>
           <input type="file" id="file-import-input" accept=".json" class="hidden">
+          <input type="file" id="file-import-csv-input" accept=".csv,text/csv" class="hidden">
         </div>
       </div>
 
