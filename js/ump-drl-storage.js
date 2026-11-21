@@ -409,6 +409,50 @@ class UmpDrlStorage {
         1
       ]));
     });
+    lines.push('');
+
+    // PHẦN 4: CẤU HÌNH KẾT NỐI GOOGLE APPS SCRIPT & BẢN TIN
+    let fbConfig = {};
+    try {
+      const rawFb = localStorage.getItem('UMP_FB_FEED_CONFIG_V1');
+      if (rawFb) fbConfig = JSON.parse(rawFb);
+    } catch (e) {}
+
+    const liveFeed = typeof window !== 'undefined' ? window.fbFeed : null;
+    const gasUrl = (liveFeed?.config?.gasUrl !== undefined ? liveFeed.config.gasUrl : fbConfig.gasUrl) || '';
+    const filterMode = (liveFeed?.config?.filterMode || fbConfig.filterMode || '5days') === 'all' ? 'all' : '5_days';
+    const dismissedIds = liveFeed?.config?.dismissed_news_ids || fbConfig.dismissed_news_ids || [];
+    const dismissedLinks = liveFeed?.config?.dismissed_links || fbConfig.dismissed_links || [];
+    const readIds = new Set(liveFeed?.config?.readIds || fbConfig.readIds || []);
+
+    lines.push(this.toCsvLine(['[CAU_HINH_KET_NOI]']));
+    lines.push(this.toCsvLine(['Khoa_Cau_Hinh', 'Gia_Tri']));
+    lines.push(this.toCsvLine(['Google_Apps_Script_URL', gasUrl]));
+    lines.push(this.toCsvLine(['Bo_Loc_Thoi_Gian_Tin', filterMode]));
+    lines.push(this.toCsvLine(['Danh_Sach_Tin_Da_Xoa', JSON.stringify(dismissedIds)]));
+    lines.push(this.toCsvLine(['Danh_Sach_Link_Da_Xoa', JSON.stringify(dismissedLinks)]));
+    lines.push('');
+
+    // PHẦN 5: DANH SÁCH TIN THÔNG BÁO (RSS/GAS + GHI NHANH THỦ CÔNG)
+    const allNewsPosts = liveFeed && typeof liveFeed.getAllPosts === 'function'
+      ? liveFeed.getAllPosts()
+      : [...(fbConfig.cached_posts || []), ...(fbConfig.manual_posts || [])];
+
+    lines.push(this.toCsvLine(['[DANH_SACH_THONG_BAO]']));
+    lines.push(this.toCsvLine(['ID_Tin', 'Tieu_De', 'Noi_Dung_Tom_Tat', 'Link_Bai_Viet', 'Ngay_Dang', 'Timestamp', 'Nguon_Tin', 'Da_Doc']));
+
+    allNewsPosts.forEach(post => {
+      lines.push(this.toCsvLine([
+        post.id || '',
+        post.title || '',
+        post.summary || post.excerpt || '',
+        post.link || '',
+        post.date || '',
+        post.timestamp || '',
+        post.source || 'Điểm Rèn Luyện UMP',
+        readIds.has(post.id) ? 'true' : 'false'
+      ]));
+    });
 
     // UTF-8 BOM bắt buộc cho Excel/Google Sheets
     const csvContent = '\uFEFF' + lines.join('\r\n');
@@ -496,6 +540,8 @@ class UmpDrlStorage {
       const studentMap = {};
       const criteriaRows = [];
       const activityRows = [];
+      const configMap = {};
+      const newsRows = [];
 
       rows.forEach(row => {
         const first = (row[0] || '').trim();
@@ -511,6 +557,14 @@ class UmpDrlStorage {
           section = 'ACTIVITIES';
           return;
         }
+        if (first === '[CAU_HINH_KET_NOI]') {
+          section = 'CONFIG';
+          return;
+        }
+        if (first === '[DANH_SACH_THONG_BAO]') {
+          section = 'NEWS';
+          return;
+        }
 
         if (section === 'STUDENT') {
           if (first === 'Truong_Thong_Tin') return;
@@ -521,6 +575,12 @@ class UmpDrlStorage {
         } else if (section === 'ACTIVITIES') {
           if (first === 'Ma_Muc') return;
           activityRows.push(row);
+        } else if (section === 'CONFIG') {
+          if (first === 'Khoa_Cau_Hinh') return;
+          configMap[first] = (row[1] || '').trim();
+        } else if (section === 'NEWS') {
+          if (first === 'ID_Tin') return;
+          newsRows.push(row);
         }
       });
 
@@ -639,7 +699,81 @@ class UmpDrlStorage {
 
       const normalized = this.normalizeData(updatedData);
       this.saveData(normalized);
-      return { success: true, data: normalized };
+
+      // Khôi phục Phần 4 & Phần 5 nếu có trong file CSV (tương thích ngược 100% với CSV cũ)
+      let hasFeedRestore = false;
+      if (Object.keys(configMap).length > 0 || newsRows.length > 0) {
+        hasFeedRestore = true;
+        let fbConfig = {};
+        try {
+          const rawFb = localStorage.getItem('UMP_FB_FEED_CONFIG_V1');
+          if (rawFb) fbConfig = JSON.parse(rawFb);
+        } catch (e) {}
+
+        const parseListField = (rawVal) => {
+          if (!rawVal) return [];
+          const trimmed = rawVal.trim();
+          if (trimmed.startsWith('[')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {}
+          }
+          return trimmed.split('|').map(s => s.trim()).filter(Boolean);
+        };
+
+        if (configMap['Google_Apps_Script_URL'] !== undefined) {
+          fbConfig.gasUrl = configMap['Google_Apps_Script_URL'];
+        }
+        if (configMap['Bo_Loc_Thoi_Gian_Tin'] !== undefined) {
+          fbConfig.filterMode = configMap['Bo_Loc_Thoi_Gian_Tin'] === 'all' ? 'all' : '5days';
+        }
+        if (configMap['Danh_Sach_Tin_Da_Xoa'] !== undefined) {
+          fbConfig.dismissed_news_ids = parseListField(configMap['Danh_Sach_Tin_Da_Xoa']);
+        }
+        if (configMap['Danh_Sach_Link_Da_Xoa'] !== undefined) {
+          fbConfig.dismissed_links = parseListField(configMap['Danh_Sach_Link_Da_Xoa']);
+        }
+
+        if (newsRows.length > 0) {
+          const restoredManual = [];
+          const restoredCached = [];
+          const restoredReadIds = new Set(Array.isArray(fbConfig.readIds) ? fbConfig.readIds : []);
+
+          newsRows.forEach((r, idx) => {
+            const id = (r[0] || `csv_news_${Date.now()}_${idx}`).trim();
+            const title = (r[1] || '').trim();
+            const summary = (r[2] || '').trim();
+            const link = (r[3] || 'https://www.facebook.com/diemrenluyenump').trim();
+            const date = (r[4] || '').trim();
+            const tsRaw = parseInt(r[5], 10);
+            const timestamp = !isNaN(tsRaw) ? tsRaw : (Date.parse(date) || Date.now());
+            const source = (r[6] || 'Điểm Rèn Luyện UMP').trim();
+            const isRead = (r[7] || '').trim().toLowerCase() === 'true';
+
+            if (!title) return;
+            if (isRead) restoredReadIds.add(id);
+
+            const postObj = { id, title, summary, link, date, timestamp, source };
+            if (id.startsWith('manual_')) {
+              restoredManual.push(postObj);
+            } else {
+              restoredCached.push(postObj);
+            }
+          });
+
+          fbConfig.manual_posts = restoredManual;
+          fbConfig.cached_posts = restoredCached;
+          fbConfig.readIds = Array.from(restoredReadIds);
+        }
+
+        fbConfig.fbPageUrl = fbConfig.fbPageUrl || 'https://www.facebook.com/diemrenluyenump';
+        try {
+          localStorage.setItem('UMP_FB_FEED_CONFIG_V1', JSON.stringify(fbConfig));
+        } catch (e) {}
+      }
+
+      return { success: true, data: normalized, hasFeedRestore };
     } catch (err) {
       return { success: false, error: err.message };
     }

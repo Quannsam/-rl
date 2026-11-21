@@ -147,6 +147,9 @@ class UmpDrlApp {
             this.data = res.data;
             this.renderSemesterSelector();
             this.render();
+            if (res.hasFeedRestore && window.fbFeed) {
+              window.fbFeed.reloadFromStorageAndSync();
+            }
             this.showToast('Đã nạp dữ liệu ĐRL từ file CSV thành công!');
           } else {
             alert('Lỗi nhập file CSV: ' + res.error);

@@ -141,6 +141,9 @@ class UmpFbFeed {
         const manualPosts = Array.isArray(parsed.manual_posts)
           ? parsed.manual_posts
           : [];
+        const cachedPosts = Array.isArray(parsed.cached_posts)
+          ? parsed.cached_posts
+          : [];
 
         const cleanConfig = {
           activeTab: parsed.activeTab === 'gas_auto' ? 'gas_auto' : 'fb_live',
@@ -153,6 +156,7 @@ class UmpFbFeed {
           dismissed_news_ids: dismissedIds,
           dismissed_links: dismissedLinks,
           manual_posts: manualPosts,
+          cached_posts: cachedPosts,
           lastKnownTopId: String(parsed.lastKnownTopId || '').startsWith('sample_ump_') ? '' : (parsed.lastKnownTopId || '')
         };
 
@@ -176,6 +180,7 @@ class UmpFbFeed {
       dismissed_news_ids: [],
       dismissed_links: [],
       manual_posts: [],
+      cached_posts: [],
       lastKnownTopId: ''
     };
   }
@@ -189,6 +194,7 @@ class UmpFbFeed {
   }
 
   init() {
+    this.gasPosts = Array.isArray(this.config.cached_posts) ? this.config.cached_posts : [];
     this.render();
     this.fetchGasFeed(false);
 
@@ -196,6 +202,15 @@ class UmpFbFeed {
     this.pollTimer = setInterval(() => {
       this.fetchGasFeed(false);
     }, 15 * 60 * 1000);
+  }
+
+  reloadFromStorageAndSync() {
+    this.config = this.loadConfig();
+    this.gasPosts = Array.isArray(this.config.cached_posts) ? this.config.cached_posts : [];
+    this.render();
+    if (this.config.gasUrl) {
+      this.fetchGasFeed(false);
+    }
   }
 
   switchTab(tab) {
@@ -311,7 +326,9 @@ class UmpFbFeed {
       }).sort((a, b) => b.timestamp - a.timestamp);
 
       this.gasPosts = mapped;
+      this.config.cached_posts = mapped.slice(0, 50);
       this.isLoading = false;
+      this.saveConfig();
 
       const visiblePosts = this.getFilteredPosts();
       if (visiblePosts.length > 0) {
