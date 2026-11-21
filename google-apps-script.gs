@@ -1,9 +1,8 @@
 /**
  * ============================================================================
- * GOOGLE APPS SCRIPT - TRẠM LẤY TIN FANPAGE ĐIỂM RÈN LUYỆN UMP (MIỄN PHÍ)
- * Nguồn duy nhất: https://www.facebook.com/diemrenluyenump
+ * GOOGLE APPS SCRIPT - ĐỌC NGUỒN FETCHRSS FANPAGE ĐIỂM RÈN LUYỆN UMP
  * ============================================================================
- * Hướng dẫn cài đặt 3 bước:
+ * Hướng dẫn cài đặt 3 bước (Miễn phí vĩnh viễn):
  * 1. Truy cập https://script.google.com -> Bấm "Dự án mới" (New Project).
  * 2. Xóa code cũ, dán toàn bộ đoạn mã này vào và bấm Lưu (Ctrl+S).
  * 3. Bấm "Triển khai" (Deploy) -> "Tùy chọn triển khai mới" (New deployment):
@@ -13,34 +12,24 @@
  *    -> Sao chép URL Web App và dán vào mục Cài đặt (⚙) trên Sổ Tay ĐRL UMP.
  */
 
+const RSS_FEED_URL = 'https://fetchrss.com/feed/1xUeuz6Ji5iM1xUev7GNf6eQ.rss';
+const SOURCE_NAME = 'Điểm Rèn Luyện UMP';
+
 // (Tùy chọn) ID Google Sheet dự phòng (Cột A: Tiêu đề | B: Link | C: Ngày yyyy-mm-dd | D: Nguồn)
 const BACKUP_SHEET_ID = '';
 const BACKUP_SHEET_NAME = 'TinDRL';
 
-const FB_PAGE_URL = 'https://www.facebook.com/diemrenluyenump';
-const FB_MBASIC_URL = 'https://mbasic.facebook.com/diemrenluyenump';
-const SOURCE_LABEL = 'Điểm Rèn Luyện UMP';
-
 function doGet(e) {
   const results = [];
 
-  // 1. Thử lấy các bài đăng công khai mới nhất từ mbasic.facebook.com/diemrenluyenump
+  // 1. Đọc và phân tích XML từ FetchRSS
   try {
-    results.push(...fetchFacebookPublicPosts(FB_MBASIC_URL));
+    results.push(...fetchFromFetchRss(RSS_FEED_URL));
   } catch (err) {
-    Logger.log('Lỗi quét mbasic.facebook.com: ' + err);
+    Logger.log('Lỗi đọc FetchRSS: ' + err);
   }
 
-  // 2. Nếu chưa có bài, thử thêm từ www.facebook.com/diemrenluyenump
-  if (results.length === 0) {
-    try {
-      results.push(...fetchFacebookPublicPosts(FB_PAGE_URL));
-    } catch (err) {
-      Logger.log('Lỗi quét www.facebook.com: ' + err);
-    }
-  }
-
-  // 3. Nguồn dự phòng từ Google Sheet (nếu Facebook tạm chặn IP máy chủ Google)
+  // 2. Kết hợp thêm tin từ Google Sheet dự phòng (nếu có cấu hình)
   if (BACKUP_SHEET_ID) {
     try {
       results.push(...fetchFromGoogleSheet(BACKUP_SHEET_ID, BACKUP_SHEET_NAME));
@@ -49,11 +38,11 @@ function doGet(e) {
     }
   }
 
-  // Loại bỏ trùng lặp theo link hoặc tiêu đề
+  // Loại bỏ trùng lặp theo link/id
   const uniqueMap = {};
   results.forEach(item => {
-    const key = (item.link || '') + '::' + (item.title || '').slice(0, 60);
-    if (item.title && !uniqueMap[key]) {
+    const key = item.link || item.id || item.title;
+    if (key && !uniqueMap[key]) {
       uniqueMap[key] = item;
     }
   });
@@ -61,124 +50,100 @@ function doGet(e) {
   const nowMs = Date.now();
   const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
 
-  // Sắp xếp mới nhất lên đầu, ưu tiên bài trong 5 ngày gần nhất
-  const allSorted = Object.values(uniqueMap)
+  // Chỉ giữ lại các bài đăng trong vòng 5 ngày gần nhất, sắp xếp mới nhất lên đầu
+  const filteredItems = Object.values(uniqueMap)
+    .filter(item => (nowMs - (item.timestamp || 0)) <= fiveDaysMs)
     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-  const recent5Days = allSorted.filter(item => (nowMs - (item.timestamp || 0)) <= fiveDaysMs);
-  const finalItems = (recent5Days.length > 0 ? recent5Days : allSorted).slice(0, 25);
+  const payload = {
+    status: 'ok',
+    updatedAt: new Date().toISOString(),
+    items: filteredItems
+  };
 
   return ContentService
-    .createTextOutput(JSON.stringify(finalItems))
+    .createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
- * Quét các bài đăng công khai từ Fanpage Điểm Rèn Luyện UMP
+ * Tải và phân tích XML RSS từ FetchRSS bằng XmlService
  */
-function fetchFacebookPublicPosts(targetUrl) {
-  const response = UrlFetchApp.fetch(targetUrl, {
+function fetchFromFetchRss(rssUrl) {
+  const response = UrlFetchApp.fetch(rssUrl, {
     muteHttpExceptions: true,
-    followRedirects: true,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-      'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7'
-    }
+    followRedirects: true
   });
-
   if (response.getResponseCode() !== 200) return [];
-  const html = response.getContentText('UTF-8');
+
+  const xmlText = response.getContentText('UTF-8');
+  const document = XmlService.parse(xmlText);
+  const root = document.getRootElement();
+  const channel = root.getChild('channel');
+  if (!channel) return [];
+
+  const itemEls = channel.getChildren('item');
   const items = [];
   const now = new Date();
-  const todayIso = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
 
-  // Tách các khối bài viết trên mbasic / facebook HTML
-  const storyBlocks = html.split(/<article|<div[^>]+data-ft=/i);
-  for (let i = 1; i < storyBlocks.length; i++) {
-    const block = storyBlocks[i];
-    const cleanText = block
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/\s+/g, ' ')
-      .trim();
+  itemEls.forEach((el, idx) => {
+    const rawTitle = el.getChildText('title') || '';
+    const link = (el.getChildText('link') || '').trim();
+    const guid = (el.getChildText('guid') || '').trim();
+    const rawDesc = el.getChildText('description') || '';
+    const pubDateStr = (el.getChildText('pubDate') || '').trim();
 
-    if (!cleanText || cleanText.length < 30) continue;
+    const cleanSummary = cleanHtmlText(rawDesc);
+    const title = cleanHtmlText(rawTitle) || (cleanSummary ? cleanSummary.slice(0, 110) : 'Bài đăng mới từ Điểm Rèn Luyện UMP');
+    const summary = cleanSummary || title;
 
-    // Tìm link bài viết gốc trên Facebook
-    const linkMatch = block.match(/href=["']([^"']*(?:story\.php|posts\/|permalink\.php|videos\/)[^"']*)["']/i);
-    let postLink = FB_PAGE_URL;
-    if (linkMatch && linkMatch[1]) {
-      let rawHref = linkMatch[1].replace(/&amp;/g, '&');
-      postLink = rawHref.startsWith('http')
-        ? rawHref.replace('mbasic.facebook.com', 'www.facebook.com')
-        : 'https://www.facebook.com' + (rawHref.startsWith('/') ? rawHref : '/' + rawHref);
+    let postDate = now;
+    if (pubDateStr) {
+      const parsed = new Date(pubDateStr);
+      if (!isNaN(parsed.getTime())) {
+        postDate = parsed;
+      }
     }
 
-    // Phân tích thời gian đăng bài (hỗ trợ dd/mm/yyyy, hôm nay, giờ trước...)
-    const parsedTime = parseFacebookDate(cleanText, now);
-    const title = cleanText.slice(0, 110) + (cleanText.length > 110 ? '...' : '');
-    const excerpt = cleanText.slice(0, 260);
+    const timestamp = postDate.getTime();
+    const isoDate = Utilities.formatDate(postDate, 'GMT+7', 'yyyy-MM-dd');
+    const id = guid || link || ('rss_' + timestamp + '_' + idx);
 
     items.push({
-      id: 'fb_' + Utilities.base64Encode(postLink + title.slice(0, 20)).slice(0, 24),
+      id: id,
       title: title,
-      excerpt: excerpt,
-      link: postLink,
-      date: parsedTime.isoDate || todayIso,
-      timestamp: parsedTime.timestamp || now.getTime(),
-      source: SOURCE_LABEL
+      summary: summary.slice(0, 280),
+      link: link || 'https://www.facebook.com/diemrenluyenump',
+      date: isoDate,
+      timestamp: timestamp,
+      source: SOURCE_NAME
     });
-  }
+  });
 
-  return items.slice(0, 15);
+  return items;
 }
 
 /**
- * Chuẩn hóa chuỗi ngày tháng tiếng Việt / Facebook sang ISO & timestamp
+ * Làm sạch thẻ HTML thừa (<br>, <p>, <img>...) và giải mã HTML entities
  */
-function parseFacebookDate(text, now) {
-  const lower = (text || '').toLowerCase();
-  const ddmmyyyy = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-  if (ddmmyyyy) {
-    const d = ddmmyyyy[1].padStart(2, '0');
-    const m = ddmmyyyy[2].padStart(2, '0');
-    const y = ddmmyyyy[3];
-    const dt = new Date(`${y}-${m}-${d}T12:00:00+07:00`);
-    return { isoDate: `${y}-${m}-${d}`, timestamp: dt.getTime() };
-  }
-
-  const ddmm = lower.match(/(\d{1,2})\s+tháng\s+(\d{1,2})/);
-  if (ddmm) {
-    const d = ddmm[1].padStart(2, '0');
-    const m = ddmm[2].padStart(2, '0');
-    const y = now.getFullYear();
-    const dt = new Date(`${y}-${m}-${d}T12:00:00+07:00`);
-    return { isoDate: `${y}-${m}-${d}`, timestamp: dt.getTime() };
-  }
-
-  const hoursAgo = lower.match(/(\d+)\s*giờ/);
-  if (hoursAgo) {
-    const ts = now.getTime() - parseInt(hoursAgo[1], 10) * 3600 * 1000;
-    return { isoDate: Utilities.formatDate(new Date(ts), 'GMT+7', 'yyyy-MM-dd'), timestamp: ts };
-  }
-
-  const minsAgo = lower.match(/(\d+)\s*phút/);
-  if (minsAgo) {
-    const ts = now.getTime() - parseInt(minsAgo[1], 10) * 60 * 1000;
-    return { isoDate: Utilities.formatDate(new Date(ts), 'GMT+7', 'yyyy-MM-dd'), timestamp: ts };
-  }
-
-  return {
-    isoDate: Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd'),
-    timestamp: now.getTime()
-  };
+function cleanHtmlText(html) {
+  if (!html) return '';
+  return String(html)
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/p>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
- * Đọc tin dự phòng từ Google Sheet (Cột A: Tiêu đề | B: Link | C: Ngày yyyy-mm-dd | D: Nguồn)
+ * Đọc thêm tin từ Google Sheet dự phòng (Cột A: Tiêu đề | B: Link | C: Ngày yyyy-mm-dd | D: Nguồn)
  */
 function fetchFromGoogleSheet(sheetId, sheetName) {
   const ss = SpreadsheetApp.openById(sheetId);
@@ -191,7 +156,7 @@ function fetchFromGoogleSheet(sheetId, sheetName) {
     const title = String(rows[i][0] || '').trim();
     const link = String(rows[i][1] || '').trim();
     const dateVal = rows[i][2];
-    const source = String(rows[i][3] || SOURCE_LABEL).trim();
+    const source = String(rows[i][3] || SOURCE_NAME).trim();
     if (!title) continue;
 
     let isoDate = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
@@ -208,8 +173,8 @@ function fetchFromGoogleSheet(sheetId, sheetName) {
     items.push({
       id: 'sheet_' + i + '_' + isoDate,
       title: title,
-      excerpt: title,
-      link: link || FB_PAGE_URL,
+      summary: title,
+      link: link || 'https://www.facebook.com/diemrenluyenump',
       date: isoDate,
       timestamp: ts,
       source: source

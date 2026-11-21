@@ -1,131 +1,100 @@
 /**
- * SỔ TAY ĐRL UMP (QĐ 1714) - BẢN TIN ĐRL UMP
+ * SỔ TAY ĐRL UMP (QĐ 1714) - BẢN TIN ĐRL UMP (FETCHRSS + GOOGLE APPS SCRIPT)
  * Nguồn duy nhất: Fanpage Điểm Rèn Luyện UMP (https://www.facebook.com/diemrenluyenump)
- * - Tab 1: Fanpage FB (Trực tiếp) qua Meta Page Plugin + nút mở trực tiếp chống trắng khung
- * - Tab 2: Tin tự động (Google Apps Script) lọc 5 ngày gần nhất, xóa/khôi phục tin, thông báo đẩy
+ * Feed FetchRSS: https://fetchrss.com/feed/1xUeuz6Ji5iM1xUev7GNf6eQ.rss
  */
 
 const UMP_FB_STORAGE_KEY = 'UMP_FB_FEED_CONFIG_V1';
 const DEFAULT_FB_PAGE_NAME = 'Điểm Rèn Luyện UMP';
 const DEFAULT_FB_PAGE_URL = 'https://www.facebook.com/diemrenluyenump';
+const FETCH_RSS_URL = 'https://fetchrss.com/feed/1xUeuz6Ji5iM1xUev7GNf6eQ.rss';
 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
 
 const GOOGLE_APPS_SCRIPT_TEMPLATE = `/**
- * GOOGLE APPS SCRIPT - TRẠM LẤY TIN FANPAGE ĐIỂM RÈN LUYỆN UMP (MIỄN PHÍ)
- * Nguồn duy nhất: https://www.facebook.com/diemrenluyenump
+ * GOOGLE APPS SCRIPT - ĐỌC NGUỒN FETCHRSS FANPAGE ĐIỂM RÈN LUYỆN UMP
  */
+const RSS_FEED_URL = 'https://fetchrss.com/feed/1xUeuz6Ji5iM1xUev7GNf6eQ.rss';
+const SOURCE_NAME = 'Điểm Rèn Luyện UMP';
 const BACKUP_SHEET_ID = '';
 const BACKUP_SHEET_NAME = 'TinDRL';
-const FB_PAGE_URL = 'https://www.facebook.com/diemrenluyenump';
-const FB_MBASIC_URL = 'https://mbasic.facebook.com/diemrenluyenump';
-const SOURCE_LABEL = 'Điểm Rèn Luyện UMP';
 
 function doGet(e) {
   const results = [];
-  try { results.push(...fetchFacebookPublicPosts(FB_MBASIC_URL)); } catch (err) {}
-  if (results.length === 0) {
-    try { results.push(...fetchFacebookPublicPosts(FB_PAGE_URL)); } catch (err) {}
-  }
+  try { results.push(...fetchFromFetchRss(RSS_FEED_URL)); } catch (err) {}
   if (BACKUP_SHEET_ID) {
     try { results.push(...fetchFromGoogleSheet(BACKUP_SHEET_ID, BACKUP_SHEET_NAME)); } catch (err) {}
   }
   const uniqueMap = {};
   results.forEach(item => {
-    const key = (item.link || '') + '::' + (item.title || '').slice(0, 60);
-    if (item.title && !uniqueMap[key]) uniqueMap[key] = item;
+    const key = item.link || item.id || item.title;
+    if (key && !uniqueMap[key]) uniqueMap[key] = item;
   });
   const nowMs = Date.now();
   const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
-  const allSorted = Object.values(uniqueMap).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-  const recent5Days = allSorted.filter(item => (nowMs - (item.timestamp || 0)) <= fiveDaysMs);
-  const finalItems = (recent5Days.length > 0 ? recent5Days : allSorted).slice(0, 25);
-  return ContentService.createTextOutput(JSON.stringify(finalItems)).setMimeType(ContentService.MimeType.JSON);
+  const filteredItems = Object.values(uniqueMap)
+    .filter(item => (nowMs - (item.timestamp || 0)) <= fiveDaysMs)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  return ContentService
+    .createTextOutput(JSON.stringify({ status: 'ok', updatedAt: new Date().toISOString(), items: filteredItems }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
-function fetchFacebookPublicPosts(targetUrl) {
-  const response = UrlFetchApp.fetch(targetUrl, {
-    muteHttpExceptions: true,
-    followRedirects: true,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-      'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7'
-    }
-  });
+function fetchFromFetchRss(rssUrl) {
+  const response = UrlFetchApp.fetch(rssUrl, { muteHttpExceptions: true, followRedirects: true });
   if (response.getResponseCode() !== 200) return [];
-  const html = response.getContentText('UTF-8');
+  const document = XmlService.parse(response.getContentText('UTF-8'));
+  const channel = document.getRootElement().getChild('channel');
+  if (!channel) return [];
   const items = [];
   const now = new Date();
-  const todayIso = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
-  const storyBlocks = html.split(/<article|<div[^>]+data-ft=/i);
-  for (let i = 1; i < storyBlocks.length; i++) {
-    const block = storyBlocks[i];
-    const cleanText = block.replace(/<script[\\s\\S]*?<\\/script>/gi, ' ').replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\\s+/g, ' ').trim();
-    if (!cleanText || cleanText.length < 30) continue;
-    const linkMatch = block.match(/href=["']([^"']*(?:story\\.php|posts\\/|permalink\\.php|videos\\/)[^"']*)["']/i);
-    let postLink = FB_PAGE_URL;
-    if (linkMatch && linkMatch[1]) {
-      let rawHref = linkMatch[1].replace(/&amp;/g, '&');
-      postLink = rawHref.startsWith('http')
-        ? rawHref.replace('mbasic.facebook.com', 'www.facebook.com')
-        : 'https://www.facebook.com' + (rawHref.startsWith('/') ? rawHref : '/' + rawHref);
+  channel.getChildren('item').forEach((el, idx) => {
+    const rawTitle = el.getChildText('title') || '';
+    const link = (el.getChildText('link') || '').trim();
+    const guid = (el.getChildText('guid') || '').trim();
+    const cleanSummary = cleanHtmlText(el.getChildText('description') || '');
+    const title = cleanHtmlText(rawTitle) || (cleanSummary ? cleanSummary.slice(0, 110) : 'Bài đăng mới từ Điểm Rèn Luyện UMP');
+    const pubDateStr = (el.getChildText('pubDate') || '').trim();
+    let postDate = now;
+    if (pubDateStr) {
+      const parsed = new Date(pubDateStr);
+      if (!isNaN(parsed.getTime())) postDate = parsed;
     }
-    const parsedTime = parseFacebookDate(cleanText, now);
-    const title = cleanText.slice(0, 110) + (cleanText.length > 110 ? '...' : '');
+    const timestamp = postDate.getTime();
+    const isoDate = Utilities.formatDate(postDate, 'GMT+7', 'yyyy-MM-dd');
     items.push({
-      id: 'fb_' + Utilities.base64Encode(postLink + title.slice(0, 20)).slice(0, 24),
-      title, excerpt: cleanText.slice(0, 260), link: postLink,
-      date: parsedTime.isoDate || todayIso, timestamp: parsedTime.timestamp || now.getTime(), source: SOURCE_LABEL
+      id: guid || link || ('rss_' + timestamp + '_' + idx),
+      title, summary: (cleanSummary || title).slice(0, 280),
+      link: link || 'https://www.facebook.com/diemrenluyenump',
+      date: isoDate, timestamp, source: SOURCE_NAME
     });
-  }
-  return items.slice(0, 15);
+  });
+  return items;
 }
 
-function parseFacebookDate(text, now) {
-  const lower = (text || '').toLowerCase();
-  const ddmmyyyy = text.match(/(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})/);
-  if (ddmmyyyy) {
-    const d = ddmmyyyy[1].padStart(2, '0'), m = ddmmyyyy[2].padStart(2, '0'), y = ddmmyyyy[3];
-    return { isoDate: \`\${y}-\${m}-\${d}\`, timestamp: new Date(\`\${y}-\${m}-\${d}T12:00:00+07:00\`).getTime() };
-  }
-  const ddmm = lower.match(/(\\d{1,2})\\s+tháng\\s+(\\d{1,2})/);
-  if (ddmm) {
-    const d = ddmm[1].padStart(2, '0'), m = ddmm[2].padStart(2, '0'), y = now.getFullYear();
-    return { isoDate: \`\${y}-\${m}-\${d}\`, timestamp: new Date(\`\${y}-\${m}-\${d}T12:00:00+07:00\`).getTime() };
-  }
-  const hoursAgo = lower.match(/(\\d+)\\s*giờ/);
-  if (hoursAgo) {
-    const ts = now.getTime() - parseInt(hoursAgo[1], 10) * 3600 * 1000;
-    return { isoDate: Utilities.formatDate(new Date(ts), 'GMT+7', 'yyyy-MM-dd'), timestamp: ts };
-  }
-  const minsAgo = lower.match(/(\\d+)\\s*phút/);
-  if (minsAgo) {
-    const ts = now.getTime() - parseInt(minsAgo[1], 10) * 60 * 1000;
-    return { isoDate: Utilities.formatDate(new Date(ts), 'GMT+7', 'yyyy-MM-dd'), timestamp: ts };
-  }
-  return { isoDate: Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd'), timestamp: now.getTime() };
+function cleanHtmlText(html) {
+  if (!html) return '';
+  return String(html).replace(/<br\\s*\\/?>/gi, ' ').replace(/<\\/p>/gi, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\\s+/g, ' ').trim();
 }
 
 function fetchFromGoogleSheet(sheetId, sheetName) {
   const ss = SpreadsheetApp.openById(sheetId);
   const sheet = ss.getSheetByName(sheetName) || ss.getSheets()[0];
   const rows = sheet.getDataRange().getValues();
-  const items = [];
-  const now = new Date();
+  const items = [], now = new Date();
   for (let i = 1; i < rows.length; i++) {
-    const title = String(rows[i][0] || '').trim();
-    const link = String(rows[i][1] || '').trim();
-    const dateVal = rows[i][2];
-    const source = String(rows[i][3] || SOURCE_LABEL).trim();
+    const title = String(rows[i][0] || '').trim(), link = String(rows[i][1] || '').trim();
+    const dateVal = rows[i][2], source = String(rows[i][3] || SOURCE_NAME).trim();
     if (!title) continue;
     let isoDate = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd'), ts = now.getTime();
     if (dateVal instanceof Date) { isoDate = Utilities.formatDate(dateVal, 'GMT+7', 'yyyy-MM-dd'); ts = dateVal.getTime(); }
     else if (typeof dateVal === 'string' && dateVal.trim()) {
       isoDate = dateVal.trim();
-      const parsed = Date.parse(isoDate);
-      if (!isNaN(parsed)) ts = parsed;
+      const p = Date.parse(isoDate);
+      if (!isNaN(p)) ts = p;
     }
-    items.push({ id: 'sheet_' + i + '_' + isoDate, title, excerpt: title, link: link || FB_PAGE_URL, date: isoDate, timestamp: ts, source });
+    items.push({ id: 'sheet_' + i + '_' + isoDate, title, summary: title, link: link || 'https://www.facebook.com/diemrenluyenump', date: isoDate, timestamp: ts, source });
   }
   return items;
 }`;
@@ -133,7 +102,7 @@ function fetchFromGoogleSheet(sheetId, sheetName) {
 class UmpFbFeed {
   constructor() {
     this.config = this.loadConfig();
-    this.posts = [];
+    this.gasPosts = [];
     this.isSettingsOpen = false;
     this.isLoading = false;
     this.errorMsg = null;
@@ -154,7 +123,6 @@ class UmpFbFeed {
       if (raw) {
         const parsed = JSON.parse(raw);
 
-        // Tự động dọn dữ liệu 2 trang mẫu cũ trong localStorage
         let fbPageUrl = parsed.fbPageUrl || parsed.selectedFanpageUrl || DEFAULT_FB_PAGE_URL;
         if (this.isLegacyOldUrl(fbPageUrl) || parsed.fanpages) {
           fbPageUrl = DEFAULT_FB_PAGE_URL;
@@ -167,6 +135,12 @@ class UmpFbFeed {
         const dismissedIds = Array.isArray(parsed.dismissed_news_ids)
           ? parsed.dismissed_news_ids
           : [];
+        const dismissedLinks = Array.isArray(parsed.dismissed_links)
+          ? parsed.dismissed_links
+          : [];
+        const manualPosts = Array.isArray(parsed.manual_posts)
+          ? parsed.manual_posts
+          : [];
 
         const cleanConfig = {
           activeTab: parsed.activeTab === 'gas_auto' ? 'gas_auto' : 'fb_live',
@@ -177,6 +151,8 @@ class UmpFbFeed {
           soundEnabled: parsed.soundEnabled !== false,
           readIds,
           dismissed_news_ids: dismissedIds,
+          dismissed_links: dismissedLinks,
+          manual_posts: manualPosts,
           lastKnownTopId: String(parsed.lastKnownTopId || '').startsWith('sample_ump_') ? '' : (parsed.lastKnownTopId || '')
         };
 
@@ -198,6 +174,8 @@ class UmpFbFeed {
       soundEnabled: true,
       readIds: [],
       dismissed_news_ids: [],
+      dismissed_links: [],
+      manual_posts: [],
       lastKnownTopId: ''
     };
   }
@@ -232,16 +210,52 @@ class UmpFbFeed {
     this.render();
   }
 
-  quickAddFromCurrentFanpage() {
-    const pageUrl = this.config.fbPageUrl || DEFAULT_FB_PAGE_URL;
+  submitManualFbPost() {
+    const titleEl = document.getElementById('fb-manual-title');
+    const linkEl = document.getElementById('fb-manual-link');
+    const title = titleEl?.value.trim();
+    const rawLink = linkEl?.value.trim();
+
+    if (!title) {
+      alert('Vui lòng nhập Tiêu đề hoạt động vừa xem trên Facebook!');
+      titleEl?.focus();
+      return;
+    }
+
+    const link = rawLink || this.config.fbPageUrl || DEFAULT_FB_PAGE_URL;
+    const now = Date.now();
+    const today = new Date(now).toISOString().split('T')[0];
+    const suggestedCritId = this.guessCriterionFromText(title);
+
+    const manualPost = {
+      id: `manual_${now}`,
+      title,
+      summary: title,
+      link,
+      date: today,
+      timestamp: now,
+      source: DEFAULT_FB_PAGE_NAME,
+      suggestedCritId
+    };
+
+    this.config.manual_posts.unshift(manualPost);
+    if (this.config.manual_posts.length > 50) {
+      this.config.manual_posts = this.config.manual_posts.slice(0, 50);
+    }
+    this.saveConfig();
+
+    if (titleEl) titleEl.value = '';
+    if (linkEl) linkEl.value = '';
+
     this.closeDrawer();
+    this.render();
+
     window.app?.openQuickAddModalWithPrefill({
-      title: '',
-      date: new Date().toISOString().split('T')[0],
-      proof: pageUrl,
-      suggestedCritId: ''
+      title,
+      date: today,
+      proof: link,
+      suggestedCritId
     });
-    setTimeout(() => document.getElementById('quick-act-title')?.focus(), 80);
   }
 
   normalizePostTimestamp(item) {
@@ -257,7 +271,7 @@ class UmpFbFeed {
 
   async fetchGasFeed(isManual = false) {
     if (!this.config.gasUrl) {
-      this.posts = [];
+      this.gasPosts = [];
       this.errorMsg = null;
       this.isLoading = false;
       this.render();
@@ -281,25 +295,24 @@ class UmpFbFeed {
         const ts = this.normalizePostTimestamp(item);
         const date = String(item.date || new Date(ts).toISOString().split('T')[0]).trim();
         const source = String(item.source || DEFAULT_FB_PAGE_NAME).trim();
-        const excerpt = String(item.excerpt || title).trim();
+        const summary = String(item.summary || item.excerpt || title).trim();
         const id = String(item.id || `${link}__${date}__${title.slice(0, 24)}_${idx}`);
 
         return {
           id,
           title,
-          excerpt,
+          summary,
           link,
           date,
           timestamp: ts,
           source,
-          suggestedCritId: this.guessCriterionFromText(title + ' ' + excerpt)
+          suggestedCritId: this.guessCriterionFromText(title + ' ' + summary)
         };
       }).sort((a, b) => b.timestamp - a.timestamp);
 
-      this.posts = mapped;
+      this.gasPosts = mapped;
       this.isLoading = false;
 
-      // Kiểm tra bài mới (chưa bị xóa) để bắn thông báo trình duyệt
       const visiblePosts = this.getFilteredPosts();
       if (visiblePosts.length > 0) {
         const newest = visiblePosts[0];
@@ -319,14 +332,29 @@ class UmpFbFeed {
     }
   }
 
+  getAllPosts() {
+    const combined = [...(this.gasPosts || []), ...(this.config.manual_posts || [])];
+    const seen = new Set();
+    return combined
+      .filter(p => {
+        const key = p.id || p.link;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  }
+
   getFilteredPosts() {
     const now = Date.now();
     const dismissed = new Set(this.config.dismissed_news_ids || []);
+    const dismissedLinks = new Set(this.config.dismissed_links || []);
 
-    return this.posts.filter(post => {
+    return this.getAllPosts().filter(post => {
       if (dismissed.has(post.id)) return false;
+      if (post.link && post.link !== DEFAULT_FB_PAGE_URL && (dismissed.has(post.link) || dismissedLinks.has(post.link))) return false;
       if (this.config.filterMode === '5days') {
-        return (now - post.timestamp) <= FIVE_DAYS_MS;
+        return (now - (post.timestamp || 0)) <= FIVE_DAYS_MS;
       }
       return true;
     });
@@ -335,9 +363,13 @@ class UmpFbFeed {
   dismissPost(postId, event) {
     if (event) event.stopPropagation();
 
-    // Lưu ngay lập tức vào localStorage để không bị mất khi F5
+    const post = this.getAllPosts().find(p => p.id === postId);
     if (!this.config.dismissed_news_ids.includes(postId)) {
       this.config.dismissed_news_ids.push(postId);
+    }
+    if (!Array.isArray(this.config.dismissed_links)) this.config.dismissed_links = [];
+    if (post && post.link && post.link !== DEFAULT_FB_PAGE_URL && !this.config.dismissed_links.includes(post.link)) {
+      this.config.dismissed_links.push(post.link);
     }
     this.saveConfig();
 
@@ -355,11 +387,15 @@ class UmpFbFeed {
   dismissAllReadPosts() {
     const visible = this.getFilteredPosts();
     const readSet = new Set(this.config.readIds || []);
+    if (!Array.isArray(this.config.dismissed_links)) this.config.dismissed_links = [];
     let count = 0;
 
     visible.forEach(p => {
       if (readSet.has(p.id) && !this.config.dismissed_news_ids.includes(p.id)) {
         this.config.dismissed_news_ids.push(p.id);
+        if (p.link && p.link !== DEFAULT_FB_PAGE_URL && !this.config.dismissed_links.includes(p.link)) {
+          this.config.dismissed_links.push(p.link);
+        }
         count++;
       }
     });
@@ -376,11 +412,12 @@ class UmpFbFeed {
 
   restoreDismissedPosts() {
     const count = this.config.dismissed_news_ids.length;
-    if (count === 0) return;
+    if (count === 0 && (!this.config.dismissed_links || this.config.dismissed_links.length === 0)) return;
     this.config.dismissed_news_ids = [];
+    this.config.dismissed_links = [];
     this.saveConfig();
     this.render();
-    window.app?.showToast(`Đã khôi phục ${count} tin đã xóa!`);
+    window.app?.showToast('Đã khôi phục các tin đã xóa!');
   }
 
   guessCriterionFromText(text) {
@@ -467,7 +504,7 @@ class UmpFbFeed {
   }
 
   savePostToDrl(postId) {
-    const post = this.posts.find(p => p.id === postId);
+    const post = this.getAllPosts().find(p => p.id === postId);
     if (!post) return;
     this.markAsRead(postId);
     this.closeDrawer();
@@ -550,7 +587,7 @@ class UmpFbFeed {
     const settingsHtml = this.isSettingsOpen ? `
       <div class="p-3 bg-slate-50 border-b border-slate-200 space-y-2.5 text-xs">
         <div class="flex items-center justify-between">
-          <span class="font-bold text-slate-800">Cài đặt nguồn tin</span>
+          <span class="font-bold text-slate-800">Cài đặt nguồn tin FetchRSS</span>
           <button type="button" onclick="window.fbFeed.toggleSettings()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
         </div>
 
@@ -589,42 +626,46 @@ class UmpFbFeed {
     let tabContentHtml = '';
 
     if (isTabFb) {
-      const iframeSrc = `https://www.facebook.com/plugins/page.php?href=${encodeURIComponent(pageUrl)}&tabs=timeline&width=310&height=490&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`;
-
+      // TAB 1: Gọn nhẹ 2 khối (Không dùng iframe)
       tabContentHtml = `
-        <div class="p-2.5 space-y-2.5">
-          <!-- Tiêu đề Fanpage cố định + nút mở nhanh -->
-          <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs">
-            <span class="font-bold text-slate-800 truncate">Fanpage: ${DEFAULT_FB_PAGE_NAME}</span>
+        <div class="p-3 space-y-3">
+          <!-- Khối 1: Thẻ truy cập nhanh Fanpage -->
+          <div class="p-3 rounded-xl bg-[#F4F8FF] border border-blue-200 space-y-2">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-[#0B5ED7] text-white flex items-center justify-center font-bold text-sm shrink-0">f</div>
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-slate-900 truncate">Fanpage: ${DEFAULT_FB_PAGE_NAME}</div>
+                <div class="text-[10px] text-slate-500 truncate">facebook.com/diemrenluyenump</div>
+              </div>
+            </div>
             <a href="${this.escapeHtml(pageUrl)}" target="_blank" rel="noopener noreferrer"
-              class="text-[11px] font-semibold text-[#0B5ED7] hover:underline shrink-0">
-              Mở trên Facebook ↗
+              class="w-full py-2 px-3 rounded-lg bg-white hover:bg-blue-50 text-[#0B5ED7] border border-blue-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors">
+              <span>Mở trên Facebook ↗</span>
             </a>
           </div>
 
-          <!-- Khung nhúng Meta Facebook Page Plugin -->
-          <div class="rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
-            <iframe src="${iframeSrc}" width="100%" height="490" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
-          </div>
-
-          <!-- Thanh thông báo khắc phục khung trắng nếu chặn cookie bên thứ ba -->
-          <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-amber-50/80 border border-amber-200/80 text-[11px]">
-            <span class="text-amber-800 leading-tight">Khung bị trắng do chặn cookie?</span>
-            <a href="${this.escapeHtml(pageUrl)}" target="_blank" rel="noopener noreferrer"
-              class="px-2 py-1 rounded bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-semibold shrink-0 transition-colors">
-              Mở trực tiếp Fanpage ↗
-            </a>
-          </div>
-
-          <!-- Nút ghi nhanh bài FB vừa xem -->
-          <button type="button" id="btn-quick-add-from-fb" onclick="window.fbFeed.quickAddFromCurrentFanpage()"
-            class="w-full py-2 px-3 rounded-xl bg-[#0B5ED7] hover:bg-[#004A99] text-white text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-colors">
-            <span>+ Ghi nhanh bài FB vừa xem</span>
-          </button>
+          <!-- Khối 2: Ghi nhanh bài viết vừa xem trên FB -->
+          <form onsubmit="event.preventDefault(); window.fbFeed.submitManualFbPost();" class="p-3 rounded-xl bg-white border border-slate-200 space-y-2.5 text-xs">
+            <div class="font-bold text-slate-800">Ghi nhanh bài viết vừa xem trên FB</div>
+            <div>
+              <label for="fb-manual-title" class="block text-[11px] font-semibold text-slate-600 mb-1">Tiêu đề hoạt động <span class="text-red-500">*</span></label>
+              <input type="text" id="fb-manual-title" placeholder="VD: Hiến máu Giọt Hồng Blouse Trắng..."
+                class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label for="fb-manual-link" class="block text-[11px] font-semibold text-slate-600 mb-1">Link bài viết (tùy chọn)</label>
+              <input type="url" id="fb-manual-link" placeholder="https://www.facebook.com/diemrenluyenump/..."
+                class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <button type="submit" id="btn-submit-manual-fb"
+              class="w-full py-2 px-3 rounded-lg bg-[#0B5ED7] hover:bg-[#004A99] text-white text-xs font-bold shadow-xs transition-colors">
+              + Lưu vào Tin tự động & Sổ tay ĐRL
+            </button>
+          </form>
         </div>
       `;
     } else {
-      // TAB 2: Tin tự động (Google Script)
+      // TAB 2: Tin tự động (FetchRSS qua Google Script + Manual posts)
       const filteredPosts = this.getFilteredPosts();
       const dismissedCount = (this.config.dismissed_news_ids || []).length;
       const is5Days = this.config.filterMode === '5days';
@@ -632,7 +673,7 @@ class UmpFbFeed {
       const filterBarHtml = `
         <div class="px-2.5 py-2 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between gap-2 text-[11px]">
           <span class="font-medium text-slate-600 truncate">
-            ${is5Days ? 'Hiển thị tin trong 5 ngày gần đây' : 'Hiển thị tất cả tin đã lấy'}
+            ${is5Days ? 'Hiển thị tin trong 5 ngày gần đây' : 'Hiển thị tất cả tin'}
           </span>
           <div class="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shrink-0">
             <button type="button" onclick="window.fbFeed.setFilterMode('5days')"
@@ -648,14 +689,17 @@ class UmpFbFeed {
       `;
 
       let bodyHtml = '';
-      if (!this.config.gasUrl) {
+      if (!this.config.gasUrl && filteredPosts.length === 0) {
         bodyHtml = `
           <div class="p-3 m-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-xs space-y-2">
-            <div class="font-bold text-[#004A99]">Chưa kết nối Google Script cho Fanpage Điểm Rèn Luyện UMP</div>
+            <div class="font-bold text-[#004A99]">Kết nối FetchRSS qua Google Apps Script</div>
+            <p class="text-[11px] text-slate-600 leading-snug">
+              Nguồn RSS: <span class="font-mono text-[10px] break-all">${FETCH_RSS_URL}</span>
+            </p>
             <ol class="list-decimal pl-4 space-y-1 text-[11px] text-slate-700 leading-snug">
               <li>Bấm <strong>📋 Sao chép mã Google Script</strong> bên dưới rồi mở <a href="https://script.google.com" target="_blank" rel="noopener noreferrer" class="text-[#0B5ED7] underline font-semibold">script.google.com</a> → Dự án mới.</li>
               <li>Dán mã và chọn <strong>Triển khai → Ứng dụng web</strong> (Quyền truy cập: <em>Bất kỳ ai</em>).</li>
-              <li>Dán URL Web App vào nút Cài đặt (<strong>⚙</strong>) để nhận tin tự động từ <span class="font-semibold">facebook.com/diemrenluyenump</span>.</li>
+              <li>Dán URL Web App vào nút Cài đặt (<strong>⚙</strong>) để tự động nhận tin mỗi 15 phút.</li>
             </ol>
             <div class="flex gap-1.5 pt-1">
               <button type="button" onclick="window.fbFeed.copyGoogleScriptCode()"
@@ -673,7 +717,7 @@ class UmpFbFeed {
         bodyHtml = `
           <div class="p-6 text-center text-xs text-slate-500 space-y-2">
             <div class="inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p>Đang tải tin từ Fanpage Điểm Rèn Luyện UMP...</p>
+            <p>Đang tải bài đăng từ FetchRSS...</p>
           </div>
         `;
       } else if (this.errorMsg) {
@@ -687,9 +731,9 @@ class UmpFbFeed {
         bodyHtml = `
           <div class="p-5 text-center text-xs text-slate-500 space-y-2">
             <p class="italic">${is5Days ? 'Chưa có bài đăng mới trong 5 ngày qua.' : 'Không có bài đăng nào.'}</p>
-            ${is5Days && this.posts.length > 0 ? `
+            ${is5Days && this.getAllPosts().length > 0 ? `
               <button type="button" onclick="window.fbFeed.setFilterMode('all')" class="text-[#0B5ED7] font-semibold underline">
-                Xem tất cả (${this.posts.length} tin)
+                Xem tất cả (${this.getAllPosts().length} tin)
               </button>
             ` : ''}
           </div>
@@ -699,6 +743,7 @@ class UmpFbFeed {
           <div class="p-2.5 space-y-2.5 xl:max-h-[calc(100vh-285px)] overflow-y-auto">
             ${filteredPosts.map(post => {
               const isUnread = !this.config.readIds.includes(post.id);
+              const summaryText = post.summary || post.excerpt || post.title;
               return `
                 <article id="fb-post-card-${this.escapeHtml(post.id)}" class="rounded-xl border ${isUnread ? 'border-blue-200 bg-[#F4F8FF]/60' : 'border-slate-200 bg-white'} p-3 transition-colors hover:border-blue-300 space-y-2">
                   <div class="flex items-center justify-between gap-2 text-[10px]">
@@ -717,9 +762,11 @@ class UmpFbFeed {
                     <h4 class="text-xs font-bold text-slate-800 group-hover:text-[#0B5ED7] leading-snug mb-1">
                       ${this.escapeHtml(post.title)}
                     </h4>
-                    <p class="text-[11px] text-slate-600 fb-line-clamp-3 leading-relaxed">
-                      ${this.escapeHtml(post.excerpt)}
-                    </p>
+                    ${summaryText !== post.title ? `
+                      <p class="text-[11px] text-slate-600 fb-line-clamp-3 leading-relaxed">
+                        ${this.escapeHtml(summaryText)}
+                      </p>
+                    ` : ''}
                   </a>
 
                   <div class="flex items-center justify-between pt-1.5 border-t border-slate-100">
@@ -779,7 +826,7 @@ class UmpFbFeed {
             </button>
             <button type="button" onclick="window.fbFeed.toggleSettings()"
               class="w-7 h-7 rounded-lg ${this.isSettingsOpen ? 'bg-blue-50 border-blue-200 text-[#0B5ED7]' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} border flex items-center justify-center text-xs"
-              title="Cài đặt Google Script & Fanpage">
+              title="Cài đặt Google Script & FetchRSS">
               ⚙
             </button>
             <button type="button" onclick="window.fbFeed.closeDrawer()"
@@ -790,14 +837,14 @@ class UmpFbFeed {
           </div>
         </div>
 
-        <!-- 2 Tab chuyển đổi miễn phí trọn đời -->
+        <!-- 2 Tab -->
         <div class="flex gap-1 p-1.5 bg-slate-50 border-b border-slate-200 shrink-0 text-[10.5px] font-semibold">
           <button type="button" onclick="window.fbFeed.switchTab('fb_live')"
             class="flex-1 py-1.5 px-1.5 rounded-lg text-center transition-all whitespace-nowrap ${isTabFb ? 'bg-white text-[#0B5ED7] shadow-2xs border border-blue-200' : 'text-slate-600 hover:bg-slate-100'}">
-            📘 Fanpage FB (Trực tiếp)
+            📘 Fanpage FB
           </button>
           <button type="button" onclick="window.fbFeed.switchTab('gas_auto')"
-            class="py-1.5 px-2.5 rounded-lg text-center transition-all flex items-center justify-center gap-1 whitespace-nowrap ${!isTabFb ? 'bg-white text-[#0B5ED7] shadow-2xs border border-blue-200' : 'text-slate-600 hover:bg-slate-100'}">
+            class="flex-1 py-1.5 px-1.5 rounded-lg text-center transition-all flex items-center justify-center gap-1 whitespace-nowrap ${!isTabFb ? 'bg-white text-[#0B5ED7] shadow-2xs border border-blue-200' : 'text-slate-600 hover:bg-slate-100'}">
             <span>🔔 Tin tự động</span>
             ${unreadCount > 0 ? `<span class="px-1.5 py-0.2 rounded-full bg-red-500 text-white text-[9px] font-bold shrink-0">${unreadCount}</span>` : ''}
           </button>
